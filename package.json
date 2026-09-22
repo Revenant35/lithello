@@ -1,0 +1,13 @@
+{
+  "name": "lithello",
+  "private": true,
+  "scripts": {},
+  "devDependencies": {
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0"
+  },
+  "engines": {
+    "node": "26.x"
+  },
+  "packageManager": "pnpm@11.24.0"
+}
