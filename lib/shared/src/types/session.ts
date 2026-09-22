@@ -1,0 +1,86 @@
+import { z } from "zod";
+
+import {
+  GameMemberSchema,
+  LobbyMemberSchema,
+  PostGameMemberSchema,
+  SessionMemberSchema,
+} from "./member.ts";
+import { BoardSchema, BoardLocationSchema, PlayerColorSchema } from "./board.ts";
+import { SessionIDSchema, UserIDSchema } from "./identifiers.ts";
+
+export const GameCompletionSchema = z.discriminatedUnion("reason", [
+  z.object({
+    reason: z.literal("resignation"),
+    resignerId: UserIDSchema,
+  }),
+  z.object({
+    reason: z.literal("draw"),
+  }),
+  z.object({
+    reason: z.literal("victory"),
+    winnerId: UserIDSchema,
+  }),
+]);
+export type GameCompletion = z.infer<typeof GameCompletionSchema>;
+
+export const TurnActionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("move"),
+    location: BoardLocationSchema,
+    playerColor: PlayerColorSchema,
+  }),
+  z.object({
+    kind: z.literal("pass"),
+    playerColor: PlayerColorSchema,
+  }),
+]);
+export type TurnAction = z.infer<typeof TurnActionSchema>;
+
+export const SessionMessageSchema = z.object({
+  authorId: UserIDSchema,
+  content: z.string(),
+});
+export type SessionMessage = z.infer<typeof SessionMessageSchema>;
+
+const BaseSessionStateSchema = z.object({
+  id: SessionIDSchema,
+  host: SessionMemberSchema,
+  messages: z.array(SessionMessageSchema),
+});
+
+export const LobbyStateSchema = BaseSessionStateSchema.extend({
+  phase: z.literal("lobby"),
+  host: LobbyMemberSchema,
+  guest: LobbyMemberSchema.optional(),
+});
+export type LobbyState = z.infer<typeof LobbyStateSchema>;
+
+export const GameStateSchema = BaseSessionStateSchema.extend({
+  phase: z.literal("game"),
+  whiteId: UserIDSchema,
+  blackId: UserIDSchema,
+  activePlayerId: UserIDSchema,
+  host: GameMemberSchema,
+  guest: GameMemberSchema,
+  board: BoardSchema,
+  history: z.array(TurnActionSchema),
+});
+export type GameState = z.infer<typeof GameStateSchema>;
+
+export const PostGameStateSchema = BaseSessionStateSchema.extend({
+  phase: z.literal("postgame"),
+  whiteId: UserIDSchema,
+  blackId: UserIDSchema,
+  host: PostGameMemberSchema,
+  guest: PostGameMemberSchema,
+  completion: GameCompletionSchema,
+});
+export type PostGameState = z.infer<typeof PostGameStateSchema>;
+
+export const SessionStateSchema = z.discriminatedUnion("phase", [
+  LobbyStateSchema,
+  GameStateSchema,
+  PostGameStateSchema,
+]);
+export type SessionState = z.infer<typeof SessionStateSchema>;

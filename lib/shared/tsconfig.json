@@ -4,12 +4,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "rewriteRelativeImportExtensions": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "declaration": true,
-    "declarationMap": true,
-    "composite": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "vitest.config.ts"]
 }

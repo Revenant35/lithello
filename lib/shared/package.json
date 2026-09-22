@@ -7,12 +7,18 @@
     "./types": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/types/index.js"
+    },
+    "./util": {
+      "types": "./dist/util/index.d.ts",
+      "import": "./dist/util/index.js"
     }
   },
   "scripts": {
-    "build": "tsc",
-    "clean": "tsc --build --clean",
-    "dev": "tsc --watch",
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "tsc --build tsconfig.build.json --clean",
+    "dev": "tsc --project tsconfig.build.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +26,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "typescript": "~6.0.3"
+    "@types/node": "^26.6.2",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
   }
 }

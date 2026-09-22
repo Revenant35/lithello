@@ -1,7 +1,16 @@
 {
   "name": "lithello",
   "private": true,
-  "scripts": {},
+  "scripts": {
+    "build": "pnpm --recursive build",
+    "dev:shared": "pnpm --filter @lithello/shared dev",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "test": "pnpm --recursive --if-present test",
+    "typecheck": "pnpm --recursive typecheck"
+  },
   "devDependencies": {
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0"
