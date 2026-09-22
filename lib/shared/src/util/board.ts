@@ -51,7 +51,11 @@ export function getValidMoveLocations(board: Board, playerColor: PlayerColor): B
   return locations;
 }
 
-export function performMove(board: Board, location: BoardLocation, playerColor: PlayerColor): Result<Board, BoardError> {
+export function performMove(
+  board: Board,
+  location: BoardLocation,
+  playerColor: PlayerColor,
+): Result<Board, BoardError> {
   if (!isMoveValid(board, location, playerColor)) {
     return err(BoardError.ILLEGAL_MOVE);
   }
@@ -59,7 +63,7 @@ export function performMove(board: Board, location: BoardLocation, playerColor: 
   const { row, col } = location;
 
   const opponentColor = getOpponentColor(playerColor);
-  const nextBoard = board.map((row) => [...row]);
+  const nextBoard = structuredClone(board);
 
   for (const [rowDelta, colDelta] of DIRECTIONS) {
     const toFlip: BoardLocation[] = [];
@@ -96,7 +100,11 @@ export function performMove(board: Board, location: BoardLocation, playerColor: 
   return ok(nextBoard);
 }
 
-export function isMoveValid(board: Board, location: BoardLocation, playerColor: PlayerColor): boolean {
+export function isMoveValid(
+  board: Board,
+  location: BoardLocation,
+  playerColor: PlayerColor,
+): boolean {
   if (!isInBounds(location) || isCellOccupied(board, location)) {
     return false;
   }

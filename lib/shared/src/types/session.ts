@@ -53,6 +53,7 @@ export const LobbyStateSchema = BaseSessionStateSchema.extend({
   phase: z.literal("lobby"),
   host: LobbyMemberSchema,
   guest: LobbyMemberSchema.optional(),
+  startAt: z.iso.datetime().optional(),
 });
 export type LobbyState = z.infer<typeof LobbyStateSchema>;
 

@@ -1,5 +1,10 @@
 import { INITIAL_BOARD } from "../types/board.ts";
-import { type GameCompletion, type GameState, type LobbyState, type SessionState } from "../types/session.ts";
+import {
+  type GameCompletion,
+  type GameState,
+  type LobbyState,
+  type SessionState,
+} from "../types/session.ts";
 import { type UserID } from "../types/index.ts";
 import { toGameState, toLobbyState, toPostGameState } from "./session.ts";
 

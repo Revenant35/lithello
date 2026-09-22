@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "build": "pnpm --recursive build",
+    "build:api": "pnpm --filter api build:watch",
+    "dev:api": "pnpm --filter api dev",
     "dev:shared": "pnpm --filter @lithello/shared dev",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

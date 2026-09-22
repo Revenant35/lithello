@@ -108,7 +108,7 @@ describe("BoardSchema", () => {
   });
 
   it("rejects a board with an invalid cell value", () => {
-    const bad = INITIAL_BOARD.map((row) => [...row]);
+    const bad = structuredClone(INITIAL_BOARD);
     (bad[0] as unknown[])[0] = "x";
     expect(BoardSchema.safeParse(bad).success).toBe(false);
   });

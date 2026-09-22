@@ -5,37 +5,57 @@ import {
   LobbyMember,
   LobbyState,
   PostGameState,
-  SessionState,
+  SessionMember,
   UserID,
 } from "../types/index.ts";
 import { toGameMember, toLobbyMember, toPostGameMember } from "./member.ts";
 
-export function toLobbyState(state: SessionState): LobbyState {
-  if (state.phase === "lobby") {
-    return state;
-  }
+export function toLobbyState(state: LobbyState): LobbyState;
+export function toLobbyState(state: GameState | PostGameState): LobbyState;
+export function toLobbyState(state: LobbyState | GameState | PostGameState): LobbyState {
+  if (state.phase === "lobby") return state;
 
   return {
     id: state.id,
     host: toLobbyMember(state.host),
-    guest: toLobbyMember(state.guest),
+    guest: state.guest !== undefined ? toLobbyMember(state.guest) : undefined,
     messages: state.messages,
     phase: "lobby",
   };
 }
 
 export function toGameState(
-  state: SessionState,
+  state: GameState,
+  options: { whiteId: UserID; blackId: UserID; guest?: LobbyMember },
+): GameState;
+
+export function toGameState(
+  state: LobbyState,
   options: { whiteId: UserID; blackId: UserID; guest: LobbyMember },
+): GameState;
+
+export function toGameState(
+  state: PostGameState,
+  options: { whiteId: UserID; blackId: UserID },
+): GameState;
+
+export function toGameState(
+  state: GameState | LobbyState | PostGameState,
+  options: { whiteId: UserID; blackId: UserID; guest?: LobbyMember },
 ): GameState {
-  if (state.phase === "game") {
-    return state;
+  if (state.phase === "game") return state;
+
+  let guest: SessionMember;
+  if (state.phase === "lobby") {
+    guest = options.guest!; // TODO: Don't love this...
+  } else {
+    guest = state.guest;
   }
 
   return {
     id: state.id,
     host: toGameMember(state.host),
-    guest: toGameMember(options.guest),
+    guest: toGameMember(guest),
     messages: state.messages,
     phase: "game",
     board: INITIAL_BOARD,

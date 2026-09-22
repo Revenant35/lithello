@@ -26,21 +26,19 @@ const validGuestBase = { ...validSessionMemberBase, id: GUEST_ID, name: "Bob" };
 
 describe("SessionMessageSchema", () => {
   it("accepts a valid message", () => {
-    expect(
-      SessionMessageSchema.safeParse({ authorId: HOST_ID, content: "hello" }).success,
-    ).toBe(true);
+    expect(SessionMessageSchema.safeParse({ authorId: HOST_ID, content: "hello" }).success).toBe(
+      true,
+    );
   });
 
   it("accepts an empty string content", () => {
-    expect(
-      SessionMessageSchema.safeParse({ authorId: HOST_ID, content: "" }).success,
-    ).toBe(true);
+    expect(SessionMessageSchema.safeParse({ authorId: HOST_ID, content: "" }).success).toBe(true);
   });
 
   it("rejects a non-UUID authorId", () => {
-    expect(
-      SessionMessageSchema.safeParse({ authorId: "not-a-uuid", content: "hi" }).success,
-    ).toBe(false);
+    expect(SessionMessageSchema.safeParse({ authorId: "not-a-uuid", content: "hi" }).success).toBe(
+      false,
+    );
   });
 
   it("rejects a missing content field", () => {
@@ -89,6 +87,23 @@ describe("LobbyStateSchema", () => {
 
   it("rejects messages that are not an array", () => {
     expect(LobbyStateSchema.safeParse({ ...validLobbyState, messages: null }).success).toBe(false);
+  });
+
+  it("accepts a valid startAt iso date string", () => {
+    expect(
+      LobbyStateSchema.safeParse({ ...validLobbyState, startAt: "2026-09-22T10:00:00.000Z" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("accepts a lobby state without startAt", () => {
+    expect(LobbyStateSchema.safeParse(validLobbyState).success).toBe(true);
+  });
+
+  it("rejects a startAt value that is not an iso date string", () => {
+    expect(
+      LobbyStateSchema.safeParse({ ...validLobbyState, startAt: "not-a-date" }).success,
+    ).toBe(false);
   });
 });
 
@@ -145,15 +160,15 @@ describe("GameStateSchema", () => {
   });
 
   it("rejects a guest missing isOfferingDraw", () => {
-    expect(
-      GameStateSchema.safeParse({ ...validGameState, guest: validGuestBase }).success,
-    ).toBe(false);
+    expect(GameStateSchema.safeParse({ ...validGameState, guest: validGuestBase }).success).toBe(
+      false,
+    );
   });
 
   it("rejects a non-UUID activePlayerId", () => {
-    expect(
-      GameStateSchema.safeParse({ ...validGameState, activePlayerId: "bad" }).success,
-    ).toBe(false);
+    expect(GameStateSchema.safeParse({ ...validGameState, activePlayerId: "bad" }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -212,9 +227,9 @@ describe("PostGameStateSchema", () => {
   });
 
   it("rejects a wrong phase literal", () => {
-    expect(
-      PostGameStateSchema.safeParse({ ...validPostGameState, phase: "game" }).success,
-    ).toBe(false);
+    expect(PostGameStateSchema.safeParse({ ...validPostGameState, phase: "game" }).success).toBe(
+      false,
+    );
   });
 });
 

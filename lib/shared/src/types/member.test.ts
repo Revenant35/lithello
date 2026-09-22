@@ -31,21 +31,17 @@ describe("SessionMemberSchema", () => {
   });
 
   it("rejects a non-boolean isConnected", () => {
-    expect(
-      SessionMemberSchema.safeParse({ ...validSessionMember, isConnected: 1 }).success,
-    ).toBe(false);
+    expect(SessionMemberSchema.safeParse({ ...validSessionMember, isConnected: 1 }).success).toBe(
+      false,
+    );
   });
 
   it("rejects a non-number wins", () => {
-    expect(
-      SessionMemberSchema.safeParse({ ...validSessionMember, wins: "0" }).success,
-    ).toBe(false);
+    expect(SessionMemberSchema.safeParse({ ...validSessionMember, wins: "0" }).success).toBe(false);
   });
 
   it("rejects negative wins", () => {
-    expect(
-      SessionMemberSchema.safeParse({ ...validSessionMember, wins: -1 }).success,
-    ).toBe(false);
+    expect(SessionMemberSchema.safeParse({ ...validSessionMember, wins: -1 }).success).toBe(false);
   });
 });
 
@@ -61,9 +57,9 @@ describe("LobbyMemberSchema", () => {
   });
 
   it("rejects a non-boolean isReady", () => {
-    expect(
-      LobbyMemberSchema.safeParse({ ...validSessionMember, isReady: "yes" }).success,
-    ).toBe(false);
+    expect(LobbyMemberSchema.safeParse({ ...validSessionMember, isReady: "yes" }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -79,9 +75,9 @@ describe("GameMemberSchema", () => {
   });
 
   it("rejects a non-boolean isOfferingDraw", () => {
-    expect(
-      GameMemberSchema.safeParse({ ...validSessionMember, isOfferingDraw: 0 }).success,
-    ).toBe(false);
+    expect(GameMemberSchema.safeParse({ ...validSessionMember, isOfferingDraw: 0 }).success).toBe(
+      false,
+    );
   });
 });
 

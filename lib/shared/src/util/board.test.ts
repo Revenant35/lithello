@@ -230,7 +230,7 @@ describe("performMove", () => {
   ])(
     "returns an error without mutating the board for an illegal move at ($row, $col)",
     (location) => {
-      const board = INITIAL_BOARD.map((row) => [...row]);
+      const board = structuredClone(INITIAL_BOARD);
       const original = structuredClone(board);
 
       expect(performMove(board, location, "w")).toEqual(err(BoardError.ILLEGAL_MOVE));
