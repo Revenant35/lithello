@@ -57,6 +57,10 @@ export class SessionService {
           });
         }
 
+        if (session.phase !== "lobby") {
+          return err(SessionServiceError.LobbyClosed);
+        }
+
         if (session.host.id === member.id) {
           session.host.isConnected = true;
           return ok({ action: "write", session });
@@ -67,16 +71,15 @@ export class SessionService {
           return ok({ action: "write", session });
         }
 
-        if (session.phase !== "lobby") {
-          return err(SessionServiceError.LobbyClosed);
-        }
-
         if (session.guest != null) {
           return err(SessionServiceError.SessionFull);
         }
 
         session.guest = member;
         return ok({ action: "write", session });
+
+        // TODO: Handle reconnection for game and postgame phases now that they
+        // use white/black instead of host/guest for player members.
       },
     );
   }
@@ -92,18 +95,17 @@ export class SessionService {
       (session): Result<TransformResult, SessionServiceError> => {
         if (session === null) return err(SessionServiceError.NotInSession);
 
+        // TODO: Handle mid-game / post-game disconnects now that game and postgame
+        // states use white/black instead of host/guest for player members.
+        if (session.phase !== "lobby") {
+          return ok({ action: "noop" });
+        }
+
         const isHost = userId === session.host.id;
         const isGuest = userId === session.guest?.id;
 
         if (!isHost && !isGuest) {
           return err(SessionServiceError.NotInSession);
-        }
-
-        // Mid-game or post-game: just mark the player as disconnected and hold state.
-        if (session.phase !== "lobby") {
-          if (isHost) session.host.isConnected = false;
-          else session.guest!.isConnected = false;
-          return ok({ action: "write", session });
         }
 
         // Lobby: guest leaves — mark disconnected.

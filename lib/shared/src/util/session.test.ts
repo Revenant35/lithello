@@ -6,7 +6,7 @@ import {
   type SessionState,
 } from "../types/session.ts";
 import { type UserID } from "../types/index.ts";
-import { toGameState, toLobbyState, toPostGameState } from "./session.ts";
+import { toGameState, toPostGameState } from "./session.ts";
 
 const SESSION_ID = "00000000-0000-4000-8000-000000000001" as const as SessionState["id"];
 const HOST_ID = "00000000-0000-4000-8000-000000000002" as const as UserID;
@@ -29,11 +29,9 @@ const lobbyState: LobbyState = {
 const gameState: GameState = {
   id: SESSION_ID,
   phase: "game",
-  host: sessionMemberBase,
-  guest: { ...sessionMemberBase, id: GUEST_ID, name: "Bob" },
+  white: sessionMemberBase,
+  black: { ...sessionMemberBase, id: GUEST_ID, name: "Bob" },
   messages: [],
-  whiteId: HOST_ID,
-  blackId: GUEST_ID,
   activePlayerId: GUEST_ID,
   board: INITIAL_BOARD,
   history: [],
@@ -41,62 +39,15 @@ const gameState: GameState = {
 };
 
 // ---------------------------------------------------------------------------
-// toLobbyState
-// ---------------------------------------------------------------------------
-
-describe("toLobbyState", () => {
-  it("returns the state unchanged if already in lobby phase", () => {
-    const result = toLobbyState(lobbyState);
-    expect(result).toBe(lobbyState);
-  });
-
-  it("converts a game state to lobby phase", () => {
-    const result = toLobbyState(gameState);
-    expect(result.phase).toBe("lobby");
-    expect(result.id).toBe(gameState.id);
-    expect(result.messages).toBe(gameState.messages);
-  });
-
-  it("resets host to a lobby member with isReady false", () => {
-    const result = toLobbyState(gameState);
-    expect(result.host.isReady).toBe(false);
-    expect(result.host.id).toBe(gameState.host.id);
-    expect(result.host.name).toBe(gameState.host.name);
-    expect(result.host.wins).toBe(gameState.host.wins);
-    expect(result.host.isConnected).toBe(gameState.host.isConnected);
-  });
-
-  it("resets guest to a lobby member with isReady false", () => {
-    const result = toLobbyState(gameState);
-    expect(result.guest?.isReady).toBe(false);
-    expect(result.guest?.id).toBe(gameState.guest.id);
-  });
-
-  it("preserves messages from the source state", () => {
-    const stateWithMessages: GameState = {
-      ...gameState,
-      messages: [{ authorId: HOST_ID, content: "gg" }],
-    };
-    expect(toLobbyState(stateWithMessages).messages).toBe(stateWithMessages.messages);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // toGameState
 // ---------------------------------------------------------------------------
 
 const gameOptions = {
-  whiteId: HOST_ID,
-  blackId: GUEST_ID,
-  guest: { ...sessionMemberBase, id: GUEST_ID, name: "Bob", isReady: false },
+  white: sessionMemberBase,
+  black: { ...sessionMemberBase, id: GUEST_ID, name: "Bob", isReady: false },
 };
 
 describe("toGameState", () => {
-  it("returns the state unchanged if already in game phase", () => {
-    const result = toGameState(gameState, gameOptions);
-    expect(result).toBe(gameState);
-  });
-
   it("converts a lobby state to game phase", () => {
     const result = toGameState(lobbyState, gameOptions);
     expect(result.phase).toBe("game");
@@ -104,11 +55,9 @@ describe("toGameState", () => {
     expect(result.messages).toBe(lobbyState.messages);
   });
 
-  it("sets whiteId, blackId, and activePlayerId from options", () => {
+  it("sets activePlayerId to the black player's id", () => {
     const result = toGameState(lobbyState, gameOptions);
-    expect(result.whiteId).toBe(gameOptions.whiteId);
-    expect(result.blackId).toBe(gameOptions.blackId);
-    expect(result.activePlayerId).toBe(gameOptions.blackId);
+    expect(result.activePlayerId).toBe(gameOptions.black.id);
   });
 
   it("initialises the board to INITIAL_BOARD and history to empty", () => {
@@ -117,14 +66,14 @@ describe("toGameState", () => {
     expect(result.history).toEqual([]);
   });
 
-  it("copies host session member fields", () => {
+  it("copies white player session member fields from options", () => {
     const result = toGameState(lobbyState, gameOptions);
-    expect(result.host.id).toBe(lobbyState.host.id);
+    expect(result.white.id).toBe(gameOptions.white.id);
   });
 
-  it("copies the provided guest option session member fields", () => {
+  it("copies black player session member fields from options", () => {
     const result = toGameState(lobbyState, gameOptions);
-    expect(result.guest.id).toBe(gameOptions.guest.id);
+    expect(result.black.id).toBe(gameOptions.black.id);
   });
 
   it("initialises drawStatus to idle", () => {
@@ -158,23 +107,21 @@ describe("toPostGameState", () => {
     );
   });
 
-  it("preserves id, whiteId, blackId, and messages", () => {
+  it("preserves id and messages", () => {
     const result = toPostGameState(gameState, completionVictory);
     expect(result.id).toBe(gameState.id);
-    expect(result.whiteId).toBe(gameState.whiteId);
-    expect(result.blackId).toBe(gameState.blackId);
     expect(result.messages).toBe(gameState.messages);
   });
 
-  it("copies host session member fields", () => {
+  it("copies white player session member fields", () => {
     const result = toPostGameState(gameState, completionVictory);
-    expect(result.host.id).toBe(gameState.host.id);
-    expect(result.host.name).toBe(gameState.host.name);
+    expect(result.white.id).toBe(gameState.white.id);
+    expect(result.white.name).toBe(gameState.white.name);
   });
 
-  it("copies guest session member fields", () => {
+  it("copies black player session member fields", () => {
     const result = toPostGameState(gameState, completionVictory);
-    expect(result.guest.id).toBe(gameState.guest.id);
+    expect(result.black.id).toBe(gameState.black.id);
   });
 
   it("initialises rematchStatus to idle", () => {

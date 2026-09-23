@@ -35,8 +35,8 @@ export enum GameServiceError {
 function resolveCompletion(session: GameState): GameCompletion {
   const whiteScore = getPlayerScore(session.board, "w");
   const blackScore = getPlayerScore(session.board, "b");
-  if (whiteScore > blackScore) return { reason: "victory", winnerId: session.whiteId };
-  if (blackScore > whiteScore) return { reason: "victory", winnerId: session.blackId };
+  if (whiteScore > blackScore) return { reason: "victory", winnerId: session.white.id };
+  if (blackScore > whiteScore) return { reason: "victory", winnerId: session.black.id };
   return { reason: "draw" };
 }
 
@@ -62,9 +62,9 @@ export class GameService {
           return err(GameServiceError.NotYourTurn);
         }
 
-        const playerColor: PlayerColor = session.whiteId === userId ? "w" : "b";
+        const playerColor: PlayerColor = session.white.id === userId ? "w" : "b";
         const opponentColor = getOpponentColor(playerColor);
-        const opponentId = playerColor === "w" ? session.blackId : session.whiteId;
+        const opponentId = playerColor === "w" ? session.black.id : session.white.id;
 
         if (action.kind === "pass") {
           // A pass is only legal when the active player has no valid moves.
@@ -127,14 +127,11 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(GameServiceError.NotInSession);
         }
 
-        if (
-          session.drawStatus.status === "offered" &&
-          session.drawStatus.offererId === userId
-        ) {
+        if (session.drawStatus.status === "offered" && session.drawStatus.offererId === userId) {
           return ok({ action: "noop" });
         }
 
@@ -157,14 +154,11 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(GameServiceError.NotInSession);
         }
 
-        if (
-          session.drawStatus.status !== "offered" ||
-          session.drawStatus.offererId === userId
-        ) {
+        if (session.drawStatus.status !== "offered" || session.drawStatus.offererId === userId) {
           return err(GameServiceError.NoDrawOffer);
         }
 
@@ -186,14 +180,11 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(GameServiceError.NotInSession);
         }
 
-        if (
-          session.drawStatus.status !== "offered" ||
-          session.drawStatus.offererId === userId
-        ) {
+        if (session.drawStatus.status !== "offered" || session.drawStatus.offererId === userId) {
           return err(GameServiceError.NoDrawOffer);
         }
 
@@ -216,14 +207,11 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(GameServiceError.NotInSession);
         }
 
-        if (
-          session.drawStatus.status !== "offered" ||
-          session.drawStatus.offererId !== userId
-        ) {
+        if (session.drawStatus.status !== "offered" || session.drawStatus.offererId !== userId) {
           return ok({ action: "noop" });
         }
 
@@ -246,10 +234,12 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(GameServiceError.NotInSession);
+        if (!findPlayer(session.white, session.black, userId)) {
+          return err(GameServiceError.NotInSession);
+        }
 
-        found.opponent.wins++;
+        const opponent = session.white.id === userId ? session.black : session.white;
+        opponent.wins++;
 
         return ok({
           action: "write",

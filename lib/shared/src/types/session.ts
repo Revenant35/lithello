@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-  GameMemberSchema,
-  LobbyMemberSchema,
-  PostGameMemberSchema,
-  SessionMemberSchema,
-} from "./member.ts";
+import { GameMemberSchema, LobbyMemberSchema, PostGameMemberSchema } from "./member.ts";
 import { BoardSchema, BoardLocationSchema, PlayerColorSchema } from "./board.ts";
 import { SessionIDSchema, UserIDSchema } from "./identifiers.ts";
 
@@ -45,7 +40,6 @@ export type SessionMessage = z.infer<typeof SessionMessageSchema>;
 
 const BaseSessionStateSchema = z.object({
   id: SessionIDSchema,
-  host: SessionMemberSchema,
   messages: z.array(SessionMessageSchema),
 });
 
@@ -65,11 +59,9 @@ export type DrawStatus = z.infer<typeof DrawStatusSchema>;
 
 export const GameStateSchema = BaseSessionStateSchema.extend({
   phase: z.literal("game"),
-  whiteId: UserIDSchema,
-  blackId: UserIDSchema,
   activePlayerId: UserIDSchema,
-  host: GameMemberSchema,
-  guest: GameMemberSchema,
+  white: GameMemberSchema,
+  black: GameMemberSchema,
   board: BoardSchema,
   history: z.array(TurnActionSchema),
   drawStatus: DrawStatusSchema,
@@ -87,10 +79,8 @@ export type RematchStatus = z.infer<typeof RematchStatusSchema>;
 
 export const PostGameStateSchema = BaseSessionStateSchema.extend({
   phase: z.literal("postgame"),
-  whiteId: UserIDSchema,
-  blackId: UserIDSchema,
-  host: PostGameMemberSchema,
-  guest: PostGameMemberSchema,
+  white: PostGameMemberSchema,
+  black: PostGameMemberSchema,
   completion: GameCompletionSchema,
   board: BoardSchema,
   history: z.array(TurnActionSchema),

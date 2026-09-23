@@ -55,9 +55,8 @@ export class LobbyService {
           return ok({
             action: "write",
             session: toGameState(session, {
-              blackId: assignHostAsBlack ? host.id : guest.id,
-              whiteId: assignHostAsBlack ? guest.id : host.id,
-              guest,
+              white: assignHostAsBlack ? guest : host,
+              black: assignHostAsBlack ? host : guest,
             }),
           });
         }

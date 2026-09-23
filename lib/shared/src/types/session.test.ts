@@ -129,9 +129,9 @@ describe("DrawStatusSchema", () => {
   });
 
   it("rejects offered status with a non-UUID offererId", () => {
-    expect(
-      DrawStatusSchema.safeParse({ status: "offered", offererId: "not-a-uuid" }).success,
-    ).toBe(false);
+    expect(DrawStatusSchema.safeParse({ status: "offered", offererId: "not-a-uuid" }).success).toBe(
+      false,
+    );
   });
 
   it("rejects an unknown status", () => {
@@ -146,11 +146,9 @@ describe("DrawStatusSchema", () => {
 const validGameState = {
   id: SESSION_ID,
   phase: "game",
-  host: validSessionMemberBase,
-  guest: validGuestBase,
+  white: validSessionMemberBase,
+  black: validGuestBase,
   messages: [],
-  whiteId: HOST_ID,
-  blackId: GUEST_ID,
   activePlayerId: GUEST_ID,
   board: INITIAL_BOARD,
   history: [],
@@ -192,9 +190,9 @@ describe("GameStateSchema", () => {
     expect(GameStateSchema.safeParse({ ...validGameState, board: shortBoard }).success).toBe(false);
   });
 
-  it("rejects a guest missing an id", () => {
-    const { id: _, ...guestNoId } = validGuestBase;
-    expect(GameStateSchema.safeParse({ ...validGameState, guest: guestNoId }).success).toBe(false);
+  it("rejects a black player missing an id", () => {
+    const { id: _, ...blackNoId } = validGuestBase;
+    expect(GameStateSchema.safeParse({ ...validGameState, black: blackNoId }).success).toBe(false);
   });
 
   it("rejects a non-UUID activePlayerId", () => {
@@ -255,11 +253,9 @@ describe("RematchStatusSchema", () => {
 const validPostGameState = {
   id: SESSION_ID,
   phase: "postgame",
-  host: validSessionMemberBase,
-  guest: validGuestBase,
+  white: validSessionMemberBase,
+  black: validGuestBase,
   messages: [],
-  whiteId: HOST_ID,
-  blackId: GUEST_ID,
   completion: { reason: "victory", winnerId: HOST_ID },
   board: INITIAL_BOARD,
   history: [],

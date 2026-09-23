@@ -1,16 +1,15 @@
 import type { UserID } from "@lithello/shared/types";
 
 /**
- * Finds the player and opponent in a session by user ID.
- * Works with any phase's member type as long as both host and guest are present.
+ * Finds the player and opponent in a game or post-game session by user ID.
  * Returns null if the user is not a participant.
  */
 export function findPlayer<M extends { id: UserID }>(
-  host: M,
-  guest: M,
+  white: M,
+  black: M,
   userId: UserID,
 ): { player: M; opponent: M } | null {
-  if (userId === host.id) return { player: host, opponent: guest };
-  if (userId === guest.id) return { player: guest, opponent: host };
+  if (userId === white.id) return { player: white, opponent: black };
+  if (userId === black.id) return { player: black, opponent: white };
   return null;
 }

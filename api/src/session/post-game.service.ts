@@ -33,7 +33,7 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(RematchServiceError.NotInSession);
         }
 
@@ -63,7 +63,7 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(RematchServiceError.NotInSession);
         }
 
@@ -77,8 +77,8 @@ export class PostGameService {
         return ok({
           action: "write",
           session: toGameState(session, {
-            whiteId: session.blackId,
-            blackId: session.whiteId,
+            white: session.black,
+            black: session.white,
           }),
         });
       },
@@ -98,7 +98,7 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(RematchServiceError.NotInSession);
         }
 
@@ -128,7 +128,7 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        if (!findPlayer(session.host, session.guest, userId)) {
+        if (!findPlayer(session.white, session.black, userId)) {
           return err(RematchServiceError.NotInSession);
         }
 

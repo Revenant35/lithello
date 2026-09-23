@@ -6,10 +6,7 @@ import { GameScoreView } from "./GameScoreView.tsx";
 import { MoveHistory } from "./MoveHistory.tsx";
 import "./GameView.css";
 
-export type DrawStatus =
-  | "idle"
-  | "offered-by-you"
-  | "offered-by-opponent";
+export type DrawStatus = "idle" | "offered-by-you" | "offered-by-opponent";
 
 interface GameViewProps {
   game: GameState;
@@ -32,7 +29,7 @@ export function GameView({
   onAcceptDraw,
   onDenyDraw,
 }: GameViewProps) {
-  const playerColor = game.blackId === playerId ? "b" : "w";
+  const playerColor = game.black.id === playerId ? "b" : "w";
   const isPlayerTurn = game.activePlayerId === playerId;
   const possibleMoves = isPlayerTurn ? getValidMoveLocations(game.board, playerColor) : [];
 
