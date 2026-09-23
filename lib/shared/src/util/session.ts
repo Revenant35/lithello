@@ -63,6 +63,7 @@ export function toGameState(
     whiteId: options.whiteId,
     blackId: options.blackId,
     activePlayerId: options.blackId,
+    drawStatus: { status: "idle" },
   };
 }
 

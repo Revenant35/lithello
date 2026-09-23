@@ -17,10 +17,7 @@ export function toLobbyMember(member: SessionMember): LobbyMember {
 }
 
 export function toGameMember(member: SessionMember): GameMember {
-  return {
-    ...toSessionMember(member),
-    isOfferingDraw: false,
-  };
+  return toSessionMember(member);
 }
 
 export function toPostGameMember(member: SessionMember): PostGameMember {

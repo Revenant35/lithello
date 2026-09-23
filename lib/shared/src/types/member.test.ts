@@ -65,17 +65,11 @@ describe("LobbyMemberSchema", () => {
 
 describe("GameMemberSchema", () => {
   it("accepts a valid game member", () => {
-    expect(
-      GameMemberSchema.safeParse({ ...validSessionMember, isOfferingDraw: false }).success,
-    ).toBe(true);
+    expect(GameMemberSchema.safeParse(validSessionMember).success).toBe(true);
   });
 
-  it("rejects a missing isOfferingDraw field", () => {
-    expect(GameMemberSchema.safeParse(validSessionMember).success).toBe(false);
-  });
-
-  it("rejects a non-boolean isOfferingDraw", () => {
-    expect(GameMemberSchema.safeParse({ ...validSessionMember, isOfferingDraw: 0 }).success).toBe(
+  it("rejects a non-UUID id", () => {
+    expect(GameMemberSchema.safeParse({ ...validSessionMember, id: "not-a-uuid" }).success).toBe(
       false,
     );
   });

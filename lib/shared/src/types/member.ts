@@ -15,9 +15,7 @@ export const LobbyMemberSchema = SessionMemberSchema.extend({
 });
 export type LobbyMember = z.infer<typeof LobbyMemberSchema>;
 
-export const GameMemberSchema = SessionMemberSchema.extend({
-  isOfferingDraw: z.boolean(),
-});
+export const GameMemberSchema = SessionMemberSchema;
 export type GameMember = z.infer<typeof GameMemberSchema>;
 
 export const PostGameMemberSchema = SessionMemberSchema;

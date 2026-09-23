@@ -38,13 +38,9 @@ describe("toGameMember", () => {
     expect(result.wins).toBe(sessionMember.wins);
   });
 
-  it("sets isOfferingDraw to false", () => {
-    expect(toGameMember(sessionMember).isOfferingDraw).toBe(false);
-  });
-
   it("does not carry over unexpected fields", () => {
     const result = toGameMember(sessionMember);
-    expect(Object.keys(result)).toEqual(["id", "name", "wins", "isConnected", "isOfferingDraw"]);
+    expect(Object.keys(result)).toEqual(["id", "name", "wins", "isConnected"]);
   });
 });
 

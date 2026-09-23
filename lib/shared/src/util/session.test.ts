@@ -26,19 +26,18 @@ const lobbyState: LobbyState = {
   messages: [{ authorId: HOST_ID, content: "hello" }],
 };
 
-const gameMemberBase = { ...sessionMemberBase, isOfferingDraw: false };
-
 const gameState: GameState = {
   id: SESSION_ID,
   phase: "game",
-  host: gameMemberBase,
-  guest: { ...gameMemberBase, id: GUEST_ID, name: "Bob" },
+  host: sessionMemberBase,
+  guest: { ...sessionMemberBase, id: GUEST_ID, name: "Bob" },
   messages: [],
   whiteId: HOST_ID,
   blackId: GUEST_ID,
   activePlayerId: GUEST_ID,
   board: INITIAL_BOARD,
   history: [],
+  drawStatus: { status: "idle" },
 };
 
 // ---------------------------------------------------------------------------
@@ -118,16 +117,19 @@ describe("toGameState", () => {
     expect(result.history).toEqual([]);
   });
 
-  it("converts host to a game member with isOfferingDraw false", () => {
+  it("copies host session member fields", () => {
     const result = toGameState(lobbyState, gameOptions);
-    expect(result.host.isOfferingDraw).toBe(false);
     expect(result.host.id).toBe(lobbyState.host.id);
   });
 
-  it("converts the provided guest option to a game member with isOfferingDraw false", () => {
+  it("copies the provided guest option session member fields", () => {
     const result = toGameState(lobbyState, gameOptions);
-    expect(result.guest.isOfferingDraw).toBe(false);
     expect(result.guest.id).toBe(gameOptions.guest.id);
+  });
+
+  it("initialises drawStatus to idle", () => {
+    const result = toGameState(lobbyState, gameOptions);
+    expect(result.drawStatus).toEqual({ status: "idle" });
   });
 });
 

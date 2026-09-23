@@ -57,6 +57,12 @@ export const LobbyStateSchema = BaseSessionStateSchema.extend({
 });
 export type LobbyState = z.infer<typeof LobbyStateSchema>;
 
+export const DrawStatusSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("idle") }),
+  z.object({ status: z.literal("offered"), offererId: UserIDSchema }),
+]);
+export type DrawStatus = z.infer<typeof DrawStatusSchema>;
+
 export const GameStateSchema = BaseSessionStateSchema.extend({
   phase: z.literal("game"),
   whiteId: UserIDSchema,
@@ -66,6 +72,7 @@ export const GameStateSchema = BaseSessionStateSchema.extend({
   guest: GameMemberSchema,
   board: BoardSchema,
   history: z.array(TurnActionSchema),
+  drawStatus: DrawStatusSchema,
 });
 export type GameState = z.infer<typeof GameStateSchema>;
 

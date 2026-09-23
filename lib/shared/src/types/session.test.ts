@@ -1,5 +1,6 @@
 import { BOARD_SIZE, INITIAL_BOARD } from "./board.ts";
 import {
+  DrawStatusSchema,
   GameStateSchema,
   LobbyStateSchema,
   PostGameStateSchema,
@@ -109,20 +110,51 @@ describe("LobbyStateSchema", () => {
 });
 
 // ---------------------------------------------------------------------------
+// DrawStatusSchema
+// ---------------------------------------------------------------------------
+
+describe("DrawStatusSchema", () => {
+  it("accepts idle status", () => {
+    expect(DrawStatusSchema.safeParse({ status: "idle" }).success).toBe(true);
+  });
+
+  it("accepts offered status with a valid UUID offererId", () => {
+    expect(DrawStatusSchema.safeParse({ status: "offered", offererId: HOST_ID }).success).toBe(
+      true,
+    );
+  });
+
+  it("rejects offered status missing offererId", () => {
+    expect(DrawStatusSchema.safeParse({ status: "offered" }).success).toBe(false);
+  });
+
+  it("rejects offered status with a non-UUID offererId", () => {
+    expect(
+      DrawStatusSchema.safeParse({ status: "offered", offererId: "not-a-uuid" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an unknown status", () => {
+    expect(DrawStatusSchema.safeParse({ status: "pending" }).success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // GameStateSchema
 // ---------------------------------------------------------------------------
 
 const validGameState = {
   id: SESSION_ID,
   phase: "game",
-  host: { ...validSessionMemberBase, isOfferingDraw: false },
-  guest: { ...validGuestBase, isOfferingDraw: false },
+  host: validSessionMemberBase,
+  guest: validGuestBase,
   messages: [],
   whiteId: HOST_ID,
   blackId: GUEST_ID,
   activePlayerId: GUEST_ID,
   board: INITIAL_BOARD,
   history: [],
+  drawStatus: { status: "idle" },
 };
 
 describe("GameStateSchema", () => {
@@ -160,16 +192,29 @@ describe("GameStateSchema", () => {
     expect(GameStateSchema.safeParse({ ...validGameState, board: shortBoard }).success).toBe(false);
   });
 
-  it("rejects a guest missing isOfferingDraw", () => {
-    expect(GameStateSchema.safeParse({ ...validGameState, guest: validGuestBase }).success).toBe(
-      false,
-    );
+  it("rejects a guest missing an id", () => {
+    const { id: _, ...guestNoId } = validGuestBase;
+    expect(GameStateSchema.safeParse({ ...validGameState, guest: guestNoId }).success).toBe(false);
   });
 
   it("rejects a non-UUID activePlayerId", () => {
     expect(GameStateSchema.safeParse({ ...validGameState, activePlayerId: "bad" }).success).toBe(
       false,
     );
+  });
+
+  it("accepts an offered draw status", () => {
+    expect(
+      GameStateSchema.safeParse({
+        ...validGameState,
+        drawStatus: { status: "offered", offererId: HOST_ID },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a missing drawStatus", () => {
+    const { drawStatus: _, ...rest } = validGameState;
+    expect(GameStateSchema.safeParse(rest).success).toBe(false);
   });
 });
 

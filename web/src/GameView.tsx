@@ -36,14 +36,12 @@ export function GameView({
   const isPlayerTurn = game.activePlayerId === playerId;
   const possibleMoves = isPlayerTurn ? getValidMoveLocations(game.board, playerColor) : [];
 
-  const me = game.host.id === playerId ? game.host : game.guest;
-  const opponent = game.host.id === playerId ? game.guest : game.host;
   const drawStatus: DrawStatus =
-    me.isOfferingDraw
-      ? "offered-by-you"
-      : opponent.isOfferingDraw
-        ? "offered-by-opponent"
-        : "idle";
+    game.drawStatus.status === "offered"
+      ? game.drawStatus.offererId === playerId
+        ? "offered-by-you"
+        : "offered-by-opponent"
+      : "idle";
 
   return (
     <div className="game-layout">

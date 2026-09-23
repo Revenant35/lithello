@@ -127,14 +127,18 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(GameServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(GameServiceError.NotInSession);
+        }
 
-        if (found.player.isOfferingDraw) {
+        if (
+          session.drawStatus.status === "offered" &&
+          session.drawStatus.offererId === userId
+        ) {
           return ok({ action: "noop" });
         }
 
-        found.player.isOfferingDraw = true;
+        session.drawStatus = { status: "offered", offererId: userId };
         return ok({ action: "write", session });
       },
     );
@@ -153,10 +157,14 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(GameServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(GameServiceError.NotInSession);
+        }
 
-        if (!found.opponent.isOfferingDraw) {
+        if (
+          session.drawStatus.status !== "offered" ||
+          session.drawStatus.offererId === userId
+        ) {
           return err(GameServiceError.NoDrawOffer);
         }
 
@@ -178,14 +186,18 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(GameServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(GameServiceError.NotInSession);
+        }
 
-        if (!found.opponent.isOfferingDraw) {
+        if (
+          session.drawStatus.status !== "offered" ||
+          session.drawStatus.offererId === userId
+        ) {
           return err(GameServiceError.NoDrawOffer);
         }
 
-        found.opponent.isOfferingDraw = false;
+        session.drawStatus = { status: "idle" };
         return ok({ action: "write", session });
       },
     );
@@ -204,14 +216,18 @@ export class GameService {
           return err(GameServiceError.NotInGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(GameServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(GameServiceError.NotInSession);
+        }
 
-        if (!found.player.isOfferingDraw) {
+        if (
+          session.drawStatus.status !== "offered" ||
+          session.drawStatus.offererId !== userId
+        ) {
           return ok({ action: "noop" });
         }
 
-        found.player.isOfferingDraw = false;
+        session.drawStatus = { status: "idle" };
         return ok({ action: "write", session });
       },
     );
