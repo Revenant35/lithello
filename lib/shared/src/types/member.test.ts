@@ -63,26 +63,42 @@ describe("LobbyMemberSchema", () => {
   });
 });
 
+const validIdleClock = { kind: "idle", clockTimeMilliseconds: 300000 };
+const validActiveClock = { kind: "active", expiresAt: "2026-09-23T08:05:00.000Z" };
+const validGameMember = { ...validSessionMember, clock: validIdleClock };
+
 describe("GameMemberSchema", () => {
-  it("accepts a valid game member", () => {
-    expect(GameMemberSchema.safeParse(validSessionMember).success).toBe(true);
+  it("accepts a valid game member with an idle clock", () => {
+    expect(GameMemberSchema.safeParse(validGameMember).success).toBe(true);
+  });
+
+  it("accepts a valid game member with an active clock", () => {
+    expect(GameMemberSchema.safeParse({ ...validGameMember, clock: validActiveClock }).success).toBe(true);
+  });
+
+  it("rejects a member missing clock", () => {
+    expect(GameMemberSchema.safeParse(validSessionMember).success).toBe(false);
   });
 
   it("rejects a non-UUID id", () => {
-    expect(GameMemberSchema.safeParse({ ...validSessionMember, id: "not-a-uuid" }).success).toBe(
-      false,
-    );
+    expect(GameMemberSchema.safeParse({ ...validGameMember, id: "not-a-uuid" }).success).toBe(false);
   });
 });
 
+const validPostGameMember = { ...validSessionMember, clock: validIdleClock };
+
 describe("PostGameMemberSchema", () => {
-  it("accepts a valid post-game member", () => {
-    expect(PostGameMemberSchema.safeParse(validSessionMember).success).toBe(true);
+  it("accepts a valid post-game member with an idle clock", () => {
+    expect(PostGameMemberSchema.safeParse(validPostGameMember).success).toBe(true);
+  });
+
+  it("rejects a member missing clock", () => {
+    expect(PostGameMemberSchema.safeParse(validSessionMember).success).toBe(false);
   });
 
   it("rejects a non-UUID id", () => {
     expect(
-      PostGameMemberSchema.safeParse({ ...validSessionMember, id: "not-a-uuid" }).success,
+      PostGameMemberSchema.safeParse({ ...validPostGameMember, id: "not-a-uuid" }).success,
     ).toBe(false);
   });
 });

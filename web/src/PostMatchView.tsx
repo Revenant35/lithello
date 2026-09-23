@@ -43,6 +43,10 @@ export function PostMatchView({
             ? outcome === "win"
               ? "Won by resignation"
               : "You resigned"
+            : reason === "timeout"
+              ? outcome === "win"
+                ? "Won by timeout"
+                : "You ran out of time"
             : "Final result"}
         </p>
         <h2 id="post-match-heading">{copy.heading}</h2>

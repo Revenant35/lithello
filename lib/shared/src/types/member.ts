@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { ClockSchema } from "./clock.ts";
 import { UserIDSchema } from "./identifiers.ts";
 
 export const SessionMemberSchema = z.object({
@@ -15,8 +16,12 @@ export const LobbyMemberSchema = SessionMemberSchema.extend({
 });
 export type LobbyMember = z.infer<typeof LobbyMemberSchema>;
 
-export const GameMemberSchema = SessionMemberSchema;
+export const GameMemberSchema = SessionMemberSchema.extend({
+  clock: ClockSchema,
+});
 export type GameMember = z.infer<typeof GameMemberSchema>;
 
-export const PostGameMemberSchema = SessionMemberSchema;
+export const PostGameMemberSchema = SessionMemberSchema.extend({
+  clock: ClockSchema,
+});
 export type PostGameMember = z.infer<typeof PostGameMemberSchema>;

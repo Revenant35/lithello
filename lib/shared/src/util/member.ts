@@ -1,4 +1,4 @@
-import { GameMember, LobbyMember, PostGameMember, SessionMember } from "../types/index.ts";
+import { Clock, GameMember, LobbyMember, PostGameMember, SessionMember } from "../types/index.ts";
 
 function toSessionMember(member: SessionMember): SessionMember {
   return {
@@ -16,10 +16,16 @@ export function toLobbyMember(member: SessionMember): LobbyMember {
   };
 }
 
-export function toGameMember(member: SessionMember): GameMember {
-  return toSessionMember(member);
+export function toGameMember(member: SessionMember, clock: Clock): GameMember {
+  return {
+    ...toSessionMember(member),
+    clock,
+  };
 }
 
-export function toPostGameMember(member: SessionMember): PostGameMember {
-  return toSessionMember(member);
+export function toPostGameMember(member: GameMember): PostGameMember {
+  return {
+    ...toSessionMember(member),
+    clock: member.clock,
+  };
 }

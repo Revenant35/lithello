@@ -26,6 +26,7 @@ import {
 import type { User } from "better-auth";
 import { PostGameService } from "./post-game.service.ts";
 import { GameService } from "./game.service.ts";
+import { ClockSchedulerService } from "./clock-scheduler.service.ts";
 
 interface SocketData {
   user: User;
@@ -48,6 +49,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     private readonly lobby: LobbyService,
     private readonly postGame: PostGameService,
     private readonly game: GameService,
+    private readonly clockScheduler: ClockSchedulerService,
   ) {}
 
   afterInit() {
@@ -183,6 +185,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     const state = await this.session.getSession(sessionId);
     if (state.isOk() && state.value !== null) {
       this.broadcast(sessionId, state.value);
+      this.scheduleClockIfGame(sessionId, state.value);
     }
   }
 
@@ -204,6 +207,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     const state = await this.session.getSession(sessionId);
     if (state.isOk() && state.value !== null) {
       this.broadcast(sessionId, state.value);
+      this.scheduleClockIfGame(sessionId, state.value);
     }
   }
 
@@ -212,6 +216,8 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     const userId = this.getUserId(client);
     const sessionId = this.getSessionId(client);
     await this.game.resigned({ userId, sessionId });
+
+    this.clockScheduler.cancel(sessionId);
 
     const state = await this.session.getSession(sessionId);
     if (state.isOk() && state.value !== null) {
@@ -236,6 +242,8 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     const userId = this.getUserId(client);
     const sessionId = this.getSessionId(client);
     await this.game.drawOfferAccepted({ userId, sessionId });
+
+    this.clockScheduler.cancel(sessionId);
 
     const state = await this.session.getSession(sessionId);
     if (state.isOk() && state.value !== null) {
@@ -288,6 +296,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     const state = await this.session.getSession(sessionId);
     if (state.isOk() && state.value !== null) {
       this.broadcast(sessionId, state.value);
+      this.scheduleClockIfGame(sessionId, state.value);
     }
   }
 
@@ -317,6 +326,27 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
   private broadcast(sessionId: SessionID, state: SessionState): void {
     this.server.to(sessionId).emit("session:state", state);
+  }
+
+  private scheduleClockIfGame(sessionId: SessionID, state: SessionState): void {
+    if (state.phase !== "game") {
+      this.clockScheduler.cancel(sessionId);
+      return;
+    }
+
+    const activePlayer =
+      state.activePlayerId === state.white.id ? state.white : state.black;
+
+    if (activePlayer.clock.kind !== "active") {
+      return;
+    }
+
+    this.clockScheduler.schedule({
+      sessionId,
+      activePlayerId: activePlayer.id,
+      expiresAt: activePlayer.clock.expiresAt,
+      broadcast: (updated) => this.broadcast(sessionId, updated),
+    });
   }
 
   private getSessionId(client: AuthenticatedSocket): SessionID {

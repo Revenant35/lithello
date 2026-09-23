@@ -1,7 +1,10 @@
 import { Injectable } from "@nestjs/common";
+import { ClockService } from "../clock.service.ts";
 import type {
+  ActiveClock,
   GameCompletion,
   GameState,
+  IdleClock,
   PlayerColor,
   SessionID,
   TurnAction,
@@ -29,6 +32,7 @@ export enum GameServiceError {
   NotYourTurn = "Not Your Turn",
   IllegalMove = "Illegal Move",
   NoDrawOffer = "No Draw Offer",
+  ClockExpired = "Clock Expired",
   UnknownError = "Unknown Error",
 }
 
@@ -42,7 +46,10 @@ function resolveCompletion(session: GameState): GameCompletion {
 
 @Injectable()
 export class GameService {
-  constructor(private readonly repository: SessionRepository) {}
+  constructor(
+    private readonly repository: SessionRepository,
+    private readonly clock: ClockService,
+  ) {}
 
   action(args: {
     userId: UserID;
@@ -61,6 +68,36 @@ export class GameService {
         if (session.activePlayerId !== userId) {
           return err(GameServiceError.NotYourTurn);
         }
+
+        const now = this.clock.now();
+        const activePlayer = session.white.id === userId ? session.white : session.black;
+        const opponent = session.white.id === userId ? session.black : session.white;
+
+        const remainingTime =
+          activePlayer.clock.kind === "active"
+            ? new Date(activePlayer.clock.expiresAt).getTime() - now.getTime()
+            : activePlayer.clock.clockTimeMilliseconds;
+
+        if (remainingTime <= 0) {
+          return ok({
+            action: "write",
+            session: toPostGameState(session, { reason: "timeout", winnerId: opponent.id }),
+          });
+        }
+
+        const opponentRemainingTime =
+          opponent.clock.kind === "idle"
+            ? opponent.clock.clockTimeMilliseconds
+            : new Date(opponent.clock.expiresAt).getTime() - now.getTime();
+
+        const idleClock: IdleClock = { kind: "idle", clockTimeMilliseconds: remainingTime };
+        const activeClock: ActiveClock = {
+          kind: "active",
+          expiresAt: new Date(now.getTime() + opponentRemainingTime).toISOString(),
+        };
+
+        activePlayer.clock = idleClock;
+        opponent.clock = activeClock;
 
         const playerColor: PlayerColor = session.white.id === userId ? "w" : "b";
         const opponentColor = getOpponentColor(playerColor);

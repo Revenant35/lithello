@@ -70,7 +70,15 @@
 }
 
 .board-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   min-width: 0;
+}
+
+.board-clock {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .othello-board {

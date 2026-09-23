@@ -5,7 +5,7 @@ import {
   type LobbyState,
   type SessionState,
 } from "../types/session.ts";
-import { type UserID } from "../types/index.ts";
+import { type Clock, type UserID } from "../types/index.ts";
 import { toGameState, toPostGameState } from "./session.ts";
 
 const SESSION_ID = "00000000-0000-4000-8000-000000000001" as const as SessionState["id"];
@@ -26,11 +26,13 @@ const lobbyState: LobbyState = {
   messages: [{ authorId: HOST_ID, content: "hello" }],
 };
 
+const idleClock: Clock = { kind: "idle", clockTimeMilliseconds: 300000 };
+
 const gameState: GameState = {
   id: SESSION_ID,
   phase: "game",
-  white: sessionMemberBase,
-  black: { ...sessionMemberBase, id: GUEST_ID, name: "Bob" },
+  white: { ...sessionMemberBase, clock: idleClock },
+  black: { ...sessionMemberBase, id: GUEST_ID, name: "Bob", clock: idleClock },
   messages: [],
   activePlayerId: GUEST_ID,
   board: INITIAL_BOARD,
@@ -45,6 +47,7 @@ const gameState: GameState = {
 const gameOptions = {
   white: sessionMemberBase,
   black: { ...sessionMemberBase, id: GUEST_ID, name: "Bob", isReady: false },
+  clock: idleClock,
 };
 
 describe("toGameState", () => {
@@ -79,6 +82,12 @@ describe("toGameState", () => {
   it("initialises drawStatus to idle", () => {
     const result = toGameState(lobbyState, gameOptions);
     expect(result.drawStatus).toEqual({ status: "idle" });
+  });
+
+  it("sets clock on both players from options", () => {
+    const result = toGameState(lobbyState, gameOptions);
+    expect(result.white.clock).toBe(gameOptions.clock);
+    expect(result.black.clock).toBe(gameOptions.clock);
   });
 });
 
@@ -127,5 +136,11 @@ describe("toPostGameState", () => {
   it("initialises rematchStatus to idle", () => {
     const result = toPostGameState(gameState, completionVictory);
     expect(result.rematchStatus).toEqual({ status: "idle" });
+  });
+
+  it("preserves clock for both players", () => {
+    const result = toPostGameState(gameState, completionVictory);
+    expect(result.white.clock).toBe(gameState.white.clock);
+    expect(result.black.clock).toBe(gameState.black.clock);
   });
 });

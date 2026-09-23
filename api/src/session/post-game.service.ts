@@ -4,11 +4,12 @@ import {
   SessionRepositoryError,
   type TransformResult,
 } from "./session.repository.ts";
-import { findPlayer } from "./session.utils.ts";
-import { SessionID, UserID } from "@lithello/shared/types";
+import { findPlayer, STARTING_CLOCK_MS } from "./session.utils.ts";
+import { type ActiveClock, type IdleClock, SessionID, UserID } from "@lithello/shared/types";
 import { toGameState } from "@lithello/shared/util";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import { RedisServiceError } from "../redis/redis.service.ts";
+import { ClockService } from "../clock.service.ts";
 
 export enum RematchServiceError {
   NotInPostGame = "Not In Post-game",
@@ -18,7 +19,10 @@ export enum RematchServiceError {
 
 @Injectable()
 export class PostGameService {
-  constructor(private readonly repository: SessionRepository) {}
+  constructor(
+    private readonly repository: SessionRepository,
+    private readonly clock: ClockService,
+  ) {}
 
   rematchRequested(args: {
     userId: UserID;
@@ -74,13 +78,20 @@ export class PostGameService {
           return err(RematchServiceError.UnknownError);
         }
 
-        return ok({
-          action: "write",
-          session: toGameState(session, {
-            white: session.black,
-            black: session.white,
-          }),
+        const now = this.clock.now();
+        const idleClock: IdleClock = { kind: "idle", clockTimeMilliseconds: STARTING_CLOCK_MS };
+        const activeClock: ActiveClock = {
+          kind: "active",
+          expiresAt: new Date(now.getTime() + STARTING_CLOCK_MS).toISOString(),
+        };
+        // Colors swap on rematch; black moves first, so the new black gets the active clock.
+        const gameState = toGameState(session, {
+          white: session.black,
+          black: session.white,
+          clock: idleClock,
         });
+        gameState.black.clock = activeClock;
+        return ok({ action: "write", session: gameState });
       },
     );
   }

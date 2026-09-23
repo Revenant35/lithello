@@ -15,6 +15,7 @@ import { MoveHistory } from "./MoveHistory.tsx";
 import { PostMatchView } from "./PostMatchView.tsx";
 import { GameView } from "./GameView.tsx";
 import { LobbyView } from "./LobbyView.tsx";
+import { PlayerClockView } from "./components/clocks/PlayerClockView.tsx";
 import "./SessionView.css";
 import { UserID, SessionIDSchema, SessionStateSchema } from "@lithello/shared/types";
 
@@ -256,7 +257,7 @@ export function SessionView({ playerId }: SessionViewProps) {
           const outcome =
             completion.reason === "draw"
               ? "draw"
-              : completion.reason === "victory"
+              : completion.reason === "victory" || completion.reason === "timeout"
                 ? completion.winnerId === playerId
                   ? "win"
                   : "loss"
@@ -271,9 +272,21 @@ export function SessionView({ playerId }: SessionViewProps) {
                 : "requested-by-opponent"
               : "idle";
 
+          const playerColor = session.black.id === playerId ? "b" : "w";
+          const player = playerColor === "w" ? session.white : session.black;
+          const opponent = playerColor === "w" ? session.black : session.white;
+
           return (
             <div className="game-layout">
-              <GameBoard board={session.board} possibleMoves={[]} onMove={() => undefined} />
+              <div className="board-panel">
+                <div className="board-clock">
+                  <PlayerClockView clock={opponent.clock} />
+                </div>
+                <GameBoard board={session.board} possibleMoves={[]} onMove={() => undefined} />
+                <div className="board-clock">
+                  <PlayerClockView clock={player.clock} />
+                </div>
+              </div>
               <div className="game-sidebar game-sidebar-finished">
                 <GameScoreView
                   blackScore={getPlayerScore(session.board, "b")}

@@ -16,6 +16,10 @@ export const GameCompletionSchema = z.discriminatedUnion("reason", [
     reason: z.literal("victory"),
     winnerId: UserIDSchema,
   }),
+  z.object({
+    reason: z.literal("timeout"),
+    winnerId: UserIDSchema,
+  }),
 ]);
 export type GameCompletion = z.infer<typeof GameCompletionSchema>;
 

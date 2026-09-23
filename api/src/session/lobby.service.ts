@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { type SessionID, type UserID, type LobbyMember } from "@lithello/shared/types";
+import { type ActiveClock, type IdleClock, type SessionID, type UserID, type LobbyMember } from "@lithello/shared/types";
 import { toGameState } from "@lithello/shared/util";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import {
@@ -8,6 +8,8 @@ import {
   type TransformResult,
 } from "./session.repository.ts";
 import { RedisServiceError } from "../redis/redis.service.ts";
+import { ClockService } from "../clock.service.ts";
+import { STARTING_CLOCK_MS } from "./session.utils.ts";
 
 export enum LobbyServiceError {
   LobbyClosed = "Lobby Closed",
@@ -16,7 +18,10 @@ export enum LobbyServiceError {
 
 @Injectable()
 export class LobbyService {
-  constructor(private readonly repository: SessionRepository) {}
+  constructor(
+    private readonly repository: SessionRepository,
+    private readonly clock: ClockService,
+  ) {}
 
   setReady(args: {
     userId: UserID;
@@ -52,13 +57,18 @@ export class LobbyService {
         player.isReady = isReady;
 
         if (host.isReady && guest?.isReady) {
-          return ok({
-            action: "write",
-            session: toGameState(session, {
-              white: assignHostAsBlack ? guest : host,
-              black: assignHostAsBlack ? host : guest,
-            }),
-          });
+          const now = this.clock.now();
+          const idleClock: IdleClock = { kind: "idle", clockTimeMilliseconds: STARTING_CLOCK_MS };
+          const activeClock: ActiveClock = {
+            kind: "active",
+            expiresAt: new Date(now.getTime() + STARTING_CLOCK_MS).toISOString(),
+          };
+          const white = assignHostAsBlack ? guest : host;
+          const black = assignHostAsBlack ? host : guest;
+          // Black moves first, so black gets the active clock.
+          const gameState = toGameState(session, { white, black, clock: idleClock });
+          gameState.black.clock = activeClock;
+          return ok({ action: "write", session: gameState });
         }
 
         return ok({ action: "write", session });

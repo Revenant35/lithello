@@ -4,6 +4,7 @@ import { getPlayerScore, getValidMoveLocations } from "@lithello/shared/util";
 import { GameBoard } from "./GameBoard.tsx";
 import { GameScoreView } from "./GameScoreView.tsx";
 import { MoveHistory } from "./MoveHistory.tsx";
+import { PlayerClockView } from "./components/clocks/PlayerClockView.tsx";
 import "./GameView.css";
 
 export type DrawStatus = "idle" | "offered-by-you" | "offered-by-opponent";
@@ -40,13 +41,24 @@ export function GameView({
         : "offered-by-opponent"
       : "idle";
 
+  const player = playerColor === "w" ? game.white : game.black;
+  const opponent = playerColor === "w" ? game.black : game.white;
+
   return (
     <div className="game-layout">
-      <GameBoard
-        board={game.board}
-        possibleMoves={possibleMoves}
-        onMove={(action) => onAction({ ...action, playerColor })}
-      />
+      <div className="board-panel">
+        <div className="board-clock">
+          <PlayerClockView clock={opponent.clock} />
+        </div>
+        <GameBoard
+          board={game.board}
+          possibleMoves={possibleMoves}
+          onMove={(action) => onAction({ ...action, playerColor })}
+        />
+        <div className="board-clock">
+          <PlayerClockView clock={player.clock} />
+        </div>
+      </div>
       <div className="game-sidebar">
         <GameScoreView
           blackScore={getPlayerScore(game.board, "b")}

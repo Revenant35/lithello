@@ -22,6 +22,10 @@ const validSessionMemberBase = {
 
 const validGuestBase = { ...validSessionMemberBase, id: GUEST_ID, name: "Bob" };
 
+const validIdleClock = { kind: "idle", clockTimeMilliseconds: 300000 };
+const validGameMemberBase = { ...validSessionMemberBase, clock: validIdleClock };
+const validGameGuestBase = { ...validGuestBase, clock: validIdleClock };
+
 // ---------------------------------------------------------------------------
 // SessionMessageSchema
 // ---------------------------------------------------------------------------
@@ -146,8 +150,8 @@ describe("DrawStatusSchema", () => {
 const validGameState = {
   id: SESSION_ID,
   phase: "game",
-  white: validSessionMemberBase,
-  black: validGuestBase,
+  white: validGameMemberBase,
+  black: validGameGuestBase,
   messages: [],
   activePlayerId: GUEST_ID,
   board: INITIAL_BOARD,
@@ -253,8 +257,8 @@ describe("RematchStatusSchema", () => {
 const validPostGameState = {
   id: SESSION_ID,
   phase: "postgame",
-  white: validSessionMemberBase,
-  black: validGuestBase,
+  white: validGameMemberBase,
+  black: validGameGuestBase,
   messages: [],
   completion: { reason: "victory", winnerId: HOST_ID },
   board: INITIAL_BOARD,
@@ -283,11 +287,29 @@ describe("PostGameStateSchema", () => {
     ).toBe(true);
   });
 
-  it("rejects a completion with an unknown reason", () => {
+  it("accepts a timeout completion", () => {
+    expect(
+      PostGameStateSchema.safeParse({
+        ...validPostGameState,
+        completion: { reason: "timeout", winnerId: HOST_ID },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a timeout completion missing winnerId", () => {
     expect(
       PostGameStateSchema.safeParse({
         ...validPostGameState,
         completion: { reason: "timeout" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a completion with an unknown reason", () => {
+    expect(
+      PostGameStateSchema.safeParse({
+        ...validPostGameState,
+        completion: { reason: "forfeit" },
       }).success,
     ).toBe(false);
   });

@@ -1,4 +1,5 @@
 import {
+  Clock,
   GameCompletion,
   GameState,
   INITIAL_BOARD,
@@ -10,12 +11,12 @@ import { toGameMember, toPostGameMember } from "./member.ts";
 
 export function toGameState(
   state: LobbyState | PostGameState,
-  options: { white: SessionMember; black: SessionMember },
+  options: { white: SessionMember; black: SessionMember; clock: Clock },
 ): GameState {
   return {
     id: state.id,
-    white: toGameMember(options.white),
-    black: toGameMember(options.black),
+    white: toGameMember(options.white, options.clock),
+    black: toGameMember(options.black, options.clock),
     messages: state.messages,
     phase: "game",
     board: INITIAL_BOARD,
