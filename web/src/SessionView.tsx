@@ -16,6 +16,7 @@ import { PostMatchView } from "./PostMatchView.tsx";
 import { GameView } from "./GameView.tsx";
 import { LobbyView } from "./LobbyView.tsx";
 import { PlayerClockView } from "./components/clocks/PlayerClockView.tsx";
+import { ChatView } from "./components/ChatView.tsx";
 import "./SessionView.css";
 import { UserID, SessionIDSchema, SessionStateSchema } from "@lithello/shared/types";
 
@@ -174,6 +175,23 @@ export function SessionView({ playerId }: SessionViewProps) {
     void navigate("/");
   }
 
+  function handleSendMessage(content: string) {
+    socketRef.current?.emit("chat:send", { content });
+  }
+
+  function getAuthorName(authorId: UserID): string {
+    if (viewState.status !== "ready") return "Unknown";
+    const session = viewState.session;
+    if (session.phase === "lobby") {
+      if (session.host.id === authorId) return session.host.name;
+      if (session.guest?.id === authorId) return session.guest.name;
+    } else if (session.phase === "game" || session.phase === "postgame") {
+      if (session.white.id === authorId) return session.white.name;
+      if (session.black.id === authorId) return session.black.name;
+    }
+    return "Unknown";
+  }
+
   const displayedSessionId =
     viewState.status === "ready"
       ? viewState.session.id
@@ -233,6 +251,9 @@ export function SessionView({ playerId }: SessionViewProps) {
           playerId={playerId}
           onReadyChange={handleReadyChange}
           onLeave={handleLeave}
+          messages={viewState.session.messages}
+          getAuthorName={getAuthorName}
+          onSendMessage={handleSendMessage}
         />
       )}
 
@@ -246,6 +267,9 @@ export function SessionView({ playerId }: SessionViewProps) {
           onCancelDraw={handleCancelDraw}
           onAcceptDraw={handleAcceptDraw}
           onDenyDraw={handleDenyDraw}
+          messages={viewState.session.messages}
+          getAuthorName={getAuthorName}
+          onSendMessage={handleSendMessage}
         />
       )}
 
@@ -303,6 +327,12 @@ export function SessionView({ playerId }: SessionViewProps) {
                 />
                 {/* TODO: Make this component's draw-stuff injected */}
                 <MoveHistory moves={session.history} />
+                <ChatView
+                  messages={session.messages}
+                  playerId={playerId}
+                  getAuthorName={getAuthorName}
+                  onSend={handleSendMessage}
+                />
               </div>
             </div>
           );

@@ -1,10 +1,11 @@
-import type { GameState, UserID, TurnAction } from "@lithello/shared/types";
+import type { GameState, SessionMessage, UserID, TurnAction } from "@lithello/shared/types";
 import { getPlayerScore, getValidMoveLocations } from "@lithello/shared/util";
 
 import { GameBoard } from "./GameBoard.tsx";
 import { GameScoreView } from "./GameScoreView.tsx";
 import { MoveHistory } from "./MoveHistory.tsx";
 import { PlayerClockView } from "./components/clocks/PlayerClockView.tsx";
+import { ChatView } from "./components/ChatView.tsx";
 import "./GameView.css";
 
 export type DrawStatus = "idle" | "offered-by-you" | "offered-by-opponent";
@@ -18,6 +19,9 @@ interface GameViewProps {
   onCancelDraw: () => void;
   onAcceptDraw: () => void;
   onDenyDraw: () => void;
+  messages: SessionMessage[];
+  getAuthorName: (authorId: UserID) => string;
+  onSendMessage: (content: string) => void;
 }
 
 export function GameView({
@@ -29,6 +33,9 @@ export function GameView({
   onCancelDraw,
   onAcceptDraw,
   onDenyDraw,
+  messages,
+  getAuthorName,
+  onSendMessage,
 }: GameViewProps) {
   const playerColor = game.black.id === playerId ? "b" : "w";
   const isPlayerTurn = game.activePlayerId === playerId;
@@ -72,6 +79,12 @@ export function GameView({
           onCancelDraw={onCancelDraw}
           onAcceptDraw={onAcceptDraw}
           onDenyDraw={onDenyDraw}
+        />
+        <ChatView
+          messages={messages}
+          playerId={playerId}
+          getAuthorName={getAuthorName}
+          onSend={onSendMessage}
         />
       </div>
     </div>

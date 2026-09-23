@@ -211,6 +211,25 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
   }
 
+  @SubscribeMessage("chat:send")
+  async sendMessage(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() body: unknown,
+  ): Promise<void> {
+    const userId = this.getUserId(client);
+    const sessionId = this.getSessionId(client);
+    const content = typeof (body as { content?: unknown })?.content === "string"
+      ? (body as { content: string }).content
+      : "";
+
+    await this.session.sendMessage({ userId, sessionId, content });
+
+    const state = await this.session.getSession(sessionId);
+    if (state.isOk() && state.value !== null) {
+      this.broadcast(sessionId, state.value);
+    }
+  }
+
   @SubscribeMessage("game:resign")
   async resigned(@ConnectedSocket() client: AuthenticatedSocket): Promise<void> {
     const userId = this.getUserId(client);

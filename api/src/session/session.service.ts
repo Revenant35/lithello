@@ -6,6 +6,7 @@ import {
   type SessionState,
   type UserID,
   type LobbyMember,
+  type SessionMessage,
 } from "@lithello/shared/types";
 import {
   SessionRepository,
@@ -18,7 +19,10 @@ export enum SessionServiceError {
   SessionFull = "Session Full",
   LobbyClosed = "Lobby Closed",
   NotInSession = "Not In Session",
+  MessageTooLong = "Message Too Long",
 }
+
+const MAX_MESSAGE_LENGTH = 500;
 
 @Injectable()
 export class SessionService {
@@ -80,6 +84,35 @@ export class SessionService {
 
         // TODO: Handle reconnection for game and postgame phases now that they
         // use white/black instead of host/guest for player members.
+      },
+    );
+  }
+
+  sendMessage(args: {
+    userId: UserID;
+    sessionId: SessionID;
+    content: string;
+  }): ResultAsync<void, SessionServiceError | SessionRepositoryError | RedisServiceError> {
+    const { userId, sessionId, content } = args;
+
+    if (content.trim().length === 0) {
+      return ResultAsync.fromSafePromise(Promise.resolve(undefined));
+    }
+
+    if (content.length > MAX_MESSAGE_LENGTH) {
+      return ResultAsync.fromSafePromise(Promise.resolve(undefined)).andThen(() =>
+        err(SessionServiceError.MessageTooLong),
+      );
+    }
+
+    const message: SessionMessage = { authorId: userId, content: content.trim() };
+
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, SessionServiceError> => {
+        if (session === null) return err(SessionServiceError.NotInSession);
+        session.messages.push(message);
+        return ok({ action: "write", session });
       },
     );
   }

@@ -4,11 +4,13 @@ import { Check, Copy, LogOut, UserRound } from "lucide-react";
 import {
   INITIAL_BOARD,
   type LobbyState,
+  type SessionMessage,
   type UserID,
   type SessionID,
 } from "@lithello/shared/types";
 
 import { GameBoard } from "./GameBoard.tsx";
+import { ChatView } from "./components/ChatView.tsx";
 import "./LobbyView.css";
 
 interface LobbyViewProps {
@@ -17,11 +19,14 @@ interface LobbyViewProps {
   playerId: UserID;
   onReadyChange: (ready: boolean) => void;
   onLeave: () => void;
+  messages: SessionMessage[];
+  getAuthorName: (authorId: UserID) => string;
+  onSendMessage: (content: string) => void;
 }
 
 type CopyStatus = "idle" | "copied" | "error";
 
-export function LobbyView({ lobby, sessionId, playerId, onReadyChange, onLeave }: LobbyViewProps) {
+export function LobbyView({ lobby, sessionId, playerId, onReadyChange, onLeave, messages, getAuthorName, onSendMessage }: LobbyViewProps) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const players = [lobby.host, lobby.guest] as const;
   const currentPlayer = players.find((player) => player?.id === playerId);
@@ -112,6 +117,12 @@ export function LobbyView({ lobby, sessionId, playerId, onReadyChange, onLeave }
             Leave session
           </button>
         </div>
+        <ChatView
+          messages={messages}
+          playerId={playerId}
+          getAuthorName={getAuthorName}
+          onSend={onSendMessage}
+        />
       </aside>
     </div>
   );

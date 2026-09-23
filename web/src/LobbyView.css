@@ -202,6 +202,15 @@
   padding-top: 1.5rem;
 }
 
+.lobby-session-panel .chat {
+  margin: 0 calc(-1 * clamp(1.25rem, 3vw, 1.75rem));
+  margin-bottom: calc(-1 * clamp(1.25rem, 3vw, 1.75rem));
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0 0 0.3rem 0.3rem;
+}
+
 .lobby-actions button {
   min-height: 2.75rem;
   font-size: 0.78rem;

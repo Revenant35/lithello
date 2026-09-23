@@ -13,6 +13,7 @@ export interface ClientToServerEvents {
   "lobby:set-ready": (payload: { ready: boolean }) => void;
   "game:action": (action: TurnAction) => void;
   "game:resign": () => void;
+  "chat:send": (payload: { content: string }) => void;
   "rematch:requested": () => void;
   "rematch:accepted": () => void;
   "rematch:denied": () => void;
