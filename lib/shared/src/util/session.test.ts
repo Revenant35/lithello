@@ -164,16 +164,19 @@ describe("toPostGameState", () => {
     expect(result.messages).toBe(gameState.messages);
   });
 
-  it("converts host to a post-game member with isRequestingRematch false", () => {
+  it("copies host session member fields", () => {
     const result = toPostGameState(gameState, completionVictory);
-    expect(result.host.isRequestingRematch).toBe(false);
     expect(result.host.id).toBe(gameState.host.id);
     expect(result.host.name).toBe(gameState.host.name);
   });
 
-  it("converts guest to a post-game member with isRequestingRematch false", () => {
+  it("copies guest session member fields", () => {
     const result = toPostGameState(gameState, completionVictory);
-    expect(result.guest.isRequestingRematch).toBe(false);
     expect(result.guest.id).toBe(gameState.guest.id);
+  });
+
+  it("initialises rematchStatus to idle", () => {
+    const result = toPostGameState(gameState, completionVictory);
+    expect(result.rematchStatus).toEqual({ status: "idle" });
   });
 });

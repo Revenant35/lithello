@@ -3,6 +3,7 @@ import {
   GameStateSchema,
   LobbyStateSchema,
   PostGameStateSchema,
+  RematchStatusSchema,
   SessionMessageSchema,
   SessionStateSchema,
 } from "./session.ts";
@@ -173,20 +174,51 @@ describe("GameStateSchema", () => {
 });
 
 // ---------------------------------------------------------------------------
+// RematchStatusSchema
+// ---------------------------------------------------------------------------
+
+describe("RematchStatusSchema", () => {
+  it("accepts idle status", () => {
+    expect(RematchStatusSchema.safeParse({ status: "idle" }).success).toBe(true);
+  });
+
+  it("accepts requested status with a valid UUID requesterId", () => {
+    expect(
+      RematchStatusSchema.safeParse({ status: "requested", requesterId: HOST_ID }).success,
+    ).toBe(true);
+  });
+
+  it("rejects requested status missing requesterId", () => {
+    expect(RematchStatusSchema.safeParse({ status: "requested" }).success).toBe(false);
+  });
+
+  it("rejects requested status with a non-UUID requesterId", () => {
+    expect(
+      RematchStatusSchema.safeParse({ status: "requested", requesterId: "not-a-uuid" }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an unknown status", () => {
+    expect(RematchStatusSchema.safeParse({ status: "accepted" }).success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // PostGameStateSchema
 // ---------------------------------------------------------------------------
 
 const validPostGameState = {
   id: SESSION_ID,
   phase: "postgame",
-  host: { ...validSessionMemberBase, isRequestingRematch: false },
-  guest: { ...validGuestBase, isRequestingRematch: false },
+  host: validSessionMemberBase,
+  guest: validGuestBase,
   messages: [],
   whiteId: HOST_ID,
   blackId: GUEST_ID,
   completion: { reason: "victory", winnerId: HOST_ID },
   board: INITIAL_BOARD,
   history: [],
+  rematchStatus: { status: "idle" },
 };
 
 describe("PostGameStateSchema", () => {
@@ -232,6 +264,20 @@ describe("PostGameStateSchema", () => {
     expect(PostGameStateSchema.safeParse({ ...validPostGameState, phase: "game" }).success).toBe(
       false,
     );
+  });
+
+  it("accepts a requested rematch status", () => {
+    expect(
+      PostGameStateSchema.safeParse({
+        ...validPostGameState,
+        rematchStatus: { status: "requested", requesterId: HOST_ID },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a missing rematchStatus", () => {
+    const { rematchStatus: _, ...rest } = validPostGameState;
+    expect(PostGameStateSchema.safeParse(rest).success).toBe(false);
   });
 });
 

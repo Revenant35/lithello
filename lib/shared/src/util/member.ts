@@ -24,8 +24,5 @@ export function toGameMember(member: SessionMember): GameMember {
 }
 
 export function toPostGameMember(member: SessionMember): PostGameMember {
-  return {
-    ...toSessionMember(member),
-    isRequestingRematch: false,
-  };
+  return toSessionMember(member);
 }

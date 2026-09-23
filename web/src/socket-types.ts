@@ -1,18 +1,6 @@
-import { z } from "zod";
-import {
-  SessionIDSchema,
-  SessionStateSchema,
-  TurnActionSchema,
-  UserIDSchema,
-} from "@lithello/shared/types";
+import { TurnAction } from "@lithello/shared/types";
 
-// Re-export schemas used in SessionView
-export { SessionIDSchema as sessionIDSchema, SessionStateSchema as sessionStateSchema };
 export type { SessionState } from "@lithello/shared/types";
-
-// PlayerID is a UserID — branded the same way
-export const PlayerIDSchema = UserIDSchema;
-export type PlayerID = z.infer<typeof PlayerIDSchema>;
 
 // join callback shapes
 export type JoinResult = { success: true } | { success: false; reason: "not-found" | "full" };
@@ -23,7 +11,7 @@ export interface ClientToServerEvents {
   "session:join": (payload: { sessionId: string }, callback: (result: JoinResult) => void) => void;
   "session:leave": () => void;
   "lobby:set-ready": (payload: { ready: boolean }) => void;
-  "game:action": (action: z.infer<typeof TurnActionSchema>) => void;
+  "game:action": (action: TurnAction) => void;
   "game:resign": () => void;
   "rematch:requested": () => void;
   "rematch:accepted": () => void;

@@ -57,18 +57,8 @@ describe("toPostGameMember", () => {
     expect(result.wins).toBe(sessionMember.wins);
   });
 
-  it("sets isRequestingRematch to false", () => {
-    expect(toPostGameMember(sessionMember).isRequestingRematch).toBe(false);
-  });
-
   it("does not carry over unexpected fields", () => {
     const result = toPostGameMember(sessionMember);
-    expect(Object.keys(result)).toEqual([
-      "id",
-      "name",
-      "wins",
-      "isConnected",
-      "isRequestingRematch",
-    ]);
+    expect(Object.keys(result)).toEqual(["id", "name", "wins", "isConnected"]);
   });
 });

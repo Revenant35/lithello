@@ -3,10 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 
 import {
-  sessionIDSchema,
-  sessionStateSchema,
   type ClientToServerEvents,
-  type PlayerID,
   type ServerToClientEvents,
   type SessionState,
 } from "./socket-types.ts";
@@ -19,9 +16,10 @@ import { PostMatchView } from "./PostMatchView.tsx";
 import { GameView } from "./GameView.tsx";
 import { LobbyView } from "./LobbyView.tsx";
 import "./SessionView.css";
+import { UserID, SessionIDSchema, SessionStateSchema } from "@lithello/shared/types";
 
 interface SessionViewProps {
-  playerId: PlayerID;
+  playerId: UserID;
 }
 
 type SessionViewState =
@@ -35,7 +33,7 @@ export function SessionView({ playerId }: SessionViewProps) {
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents>>(null);
   const hasRequestedCreation = useRef(false);
   const isCreatingSession = sessionId === "new";
-  const initialSessionId = isCreatingSession ? null : sessionIDSchema.safeParse(sessionId);
+  const initialSessionId = isCreatingSession ? null : SessionIDSchema.safeParse(sessionId);
   const [viewState, setViewState] = useState<SessionViewState>(() =>
     !isCreatingSession && !initialSessionId?.success
       ? { status: "error", message: "This session link is not valid." }
@@ -44,7 +42,7 @@ export function SessionView({ playerId }: SessionViewProps) {
 
   useEffect(() => {
     const isCreating = sessionId === "new";
-    const parsedSessionId = isCreating ? null : sessionIDSchema.safeParse(sessionId);
+    const parsedSessionId = isCreating ? null : SessionIDSchema.safeParse(sessionId);
 
     if (!isCreating && !parsedSessionId?.success) {
       return;
@@ -85,7 +83,7 @@ export function SessionView({ playerId }: SessionViewProps) {
     });
 
     socket.on("session:state", (unparsedSessionState) => {
-      const parsedSessionState = sessionStateSchema.safeParse(unparsedSessionState);
+      const parsedSessionState = SessionStateSchema.safeParse(unparsedSessionState);
 
       if (!parsedSessionState.success) {
         setViewState({ status: "error", message: "The server returned an invalid session." });
@@ -266,16 +264,12 @@ export function SessionView({ playerId }: SessionViewProps) {
                   ? "loss"
                   : "win"; // resignation: the resigner loses
 
-          const me = session.host.id === playerId ? session.host : session.guest;
-          const opponent = session.host.id === playerId ? session.guest : session.host;
           const rematchStatus =
-            me.isRequestingRematch && opponent.isRequestingRematch
-              ? "accepted"
-              : me.isRequestingRematch
+            session.rematchStatus.status === "requested"
+              ? session.rematchStatus.requesterId === playerId
                 ? "requested-by-you"
-                : opponent.isRequestingRematch
-                  ? "requested-by-opponent"
-                  : "idle";
+                : "requested-by-opponent"
+              : "idle";
 
           return (
             <div className="game-layout">
@@ -294,6 +288,7 @@ export function SessionView({ playerId }: SessionViewProps) {
                   onDenyRematch={handleDenyRematch}
                   onRequestRematch={handleRequestRematch}
                 />
+                {/* TODO: Make this component's draw-stuff injected */}
                 <MoveHistory moves={session.history} />
               </div>
             </div>

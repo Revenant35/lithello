@@ -78,5 +78,6 @@ export function toPostGameState(state: GameState, completion: GameCompletion): P
     completion,
     board: state.board,
     history: state.history,
+    rematchStatus: { status: "idle" },
   };
 }

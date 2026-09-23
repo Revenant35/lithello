@@ -4,7 +4,7 @@ import { Check, Copy, LogOut, UserRound } from "lucide-react";
 import {
   INITIAL_BOARD,
   type LobbyState,
-  type PlayerID,
+  type UserID,
   type SessionID,
 } from "@lithello/shared/types";
 
@@ -14,7 +14,7 @@ import "./LobbyView.css";
 interface LobbyViewProps {
   lobby: LobbyState;
   sessionId: SessionID;
-  playerId: PlayerID;
+  playerId: UserID;
   onReadyChange: (ready: boolean) => void;
   onLeave: () => void;
 }

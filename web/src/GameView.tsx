@@ -1,4 +1,4 @@
-import type { GameState, PlayerID, TurnAction } from "@lithello/shared/types";
+import type { GameState, UserID, TurnAction } from "@lithello/shared/types";
 import { getPlayerScore, getValidMoveLocations } from "@lithello/shared/util";
 
 import { GameBoard } from "./GameBoard.tsx";
@@ -13,7 +13,7 @@ export type DrawStatus =
 
 interface GameViewProps {
   game: GameState;
-  playerId: PlayerID;
+  playerId: UserID;
   onAction: (action: TurnAction) => void;
   onResign: () => void;
   onOfferDraw: () => void;

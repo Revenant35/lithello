@@ -83,18 +83,12 @@ describe("GameMemberSchema", () => {
 
 describe("PostGameMemberSchema", () => {
   it("accepts a valid post-game member", () => {
-    expect(
-      PostGameMemberSchema.safeParse({ ...validSessionMember, isRequestingRematch: false }).success,
-    ).toBe(true);
+    expect(PostGameMemberSchema.safeParse(validSessionMember).success).toBe(true);
   });
 
-  it("rejects a missing isRequestingRematch field", () => {
-    expect(PostGameMemberSchema.safeParse(validSessionMember).success).toBe(false);
-  });
-
-  it("rejects a non-boolean isRequestingRematch", () => {
+  it("rejects a non-UUID id", () => {
     expect(
-      PostGameMemberSchema.safeParse({ ...validSessionMember, isRequestingRematch: null }).success,
+      PostGameMemberSchema.safeParse({ ...validSessionMember, id: "not-a-uuid" }).success,
     ).toBe(false);
   });
 });

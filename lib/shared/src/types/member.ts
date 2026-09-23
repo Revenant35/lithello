@@ -20,7 +20,5 @@ export const GameMemberSchema = SessionMemberSchema.extend({
 });
 export type GameMember = z.infer<typeof GameMemberSchema>;
 
-export const PostGameMemberSchema = SessionMemberSchema.extend({
-  isRequestingRematch: z.boolean(),
-});
+export const PostGameMemberSchema = SessionMemberSchema;
 export type PostGameMember = z.infer<typeof PostGameMemberSchema>;

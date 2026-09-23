@@ -15,12 +15,7 @@ interface PostMatchViewProps {
   onRequestRematch: () => void;
 }
 
-export type RematchStatus =
-  | "idle"
-  | "requested-by-you"
-  | "requested-by-opponent"
-  | "accepted"
-  | "denied";
+export type RematchStatus = "idle" | "requested-by-you" | "requested-by-opponent";
 
 const OUTCOME_COPY = {
   win: { heading: "You win!", message: "The board is yours." },
@@ -80,21 +75,14 @@ export function PostMatchView({
           </button>
         )}
 
-        {rematchStatus === "accepted" && (
-          <button type="button" disabled>
-            <RotateCcw aria-hidden="true" size={14} />
-            Starting...
-          </button>
-        )}
-
-        {(rematchStatus === "idle" || rematchStatus === "denied" || rematchStatus === "requested-by-opponent") && (
+        {(rematchStatus === "idle" || rematchStatus === "requested-by-opponent") && (
           <button
             type="button"
             disabled={rematchStatus === "requested-by-opponent"}
             onClick={onRequestRematch}
           >
             <RotateCcw aria-hidden="true" size={14} />
-            {rematchStatus === "denied" ? "Request again" : "Rematch"}
+            Rematch
           </button>
         )}
       </div>

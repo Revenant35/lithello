@@ -69,6 +69,15 @@ export const GameStateSchema = BaseSessionStateSchema.extend({
 });
 export type GameState = z.infer<typeof GameStateSchema>;
 
+export const RematchStatusSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("idle") }),
+  z.object({
+    status: z.literal("requested"),
+    requesterId: UserIDSchema,
+  }),
+]);
+export type RematchStatus = z.infer<typeof RematchStatusSchema>;
+
 export const PostGameStateSchema = BaseSessionStateSchema.extend({
   phase: z.literal("postgame"),
   whiteId: UserIDSchema,
@@ -78,6 +87,7 @@ export const PostGameStateSchema = BaseSessionStateSchema.extend({
   completion: GameCompletionSchema,
   board: BoardSchema,
   history: z.array(TurnActionSchema),
+  rematchStatus: RematchStatusSchema,
 });
 export type PostGameState = z.infer<typeof PostGameStateSchema>;
 

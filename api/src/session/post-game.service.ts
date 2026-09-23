@@ -33,14 +33,18 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(RematchServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(RematchServiceError.NotInSession);
+        }
 
-        if (found.player.isRequestingRematch) {
+        if (
+          session.rematchStatus.status === "requested" &&
+          session.rematchStatus.requesterId === userId
+        ) {
           return ok({ action: "noop" });
         }
 
-        found.player.isRequestingRematch = true;
+        session.rematchStatus = { status: "requested", requesterId: userId };
         return ok({ action: "write", session });
       },
     );
@@ -59,10 +63,14 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(RematchServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(RematchServiceError.NotInSession);
+        }
 
-        if (!found.opponent.isRequestingRematch) {
+        if (
+          session.rematchStatus.status !== "requested" ||
+          session.rematchStatus.requesterId === userId
+        ) {
           return err(RematchServiceError.UnknownError);
         }
 
@@ -90,14 +98,18 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(RematchServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(RematchServiceError.NotInSession);
+        }
 
-        if (!found.opponent.isRequestingRematch) {
+        if (
+          session.rematchStatus.status !== "requested" ||
+          session.rematchStatus.requesterId === userId
+        ) {
           return err(RematchServiceError.UnknownError);
         }
 
-        found.opponent.isRequestingRematch = false;
+        session.rematchStatus = { status: "idle" };
         return ok({ action: "write", session });
       },
     );
@@ -116,14 +128,18 @@ export class PostGameService {
           return err(RematchServiceError.NotInPostGame);
         }
 
-        const found = findPlayer(session.host, session.guest, userId);
-        if (!found) return err(RematchServiceError.NotInSession);
+        if (!findPlayer(session.host, session.guest, userId)) {
+          return err(RematchServiceError.NotInSession);
+        }
 
-        if (!found.player.isRequestingRematch) {
+        if (
+          session.rematchStatus.status !== "requested" ||
+          session.rematchStatus.requesterId !== userId
+        ) {
           return ok({ action: "noop" });
         }
 
-        found.player.isRequestingRematch = false;
+        session.rematchStatus = { status: "idle" };
         return ok({ action: "write", session });
       },
     );
