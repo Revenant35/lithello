@@ -1,8 +1,17 @@
 import { Injectable } from "@nestjs/common";
-import { err, ok, ResultAsync } from "neverthrow";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { User } from "better-auth";
-import { type SessionID, type UserID, type LobbyMember } from "@lithello/shared/types";
-import { SessionRepository, SessionRepositoryError } from "./session.repository.ts";
+import {
+  type SessionID,
+  type SessionState,
+  type UserID,
+  type LobbyMember,
+} from "@lithello/shared/types";
+import {
+  SessionRepository,
+  SessionRepositoryError,
+  type TransformResult,
+} from "./session.repository.ts";
 import { RedisServiceError } from "../redis/redis.service.ts";
 
 export enum SessionServiceError {
@@ -14,6 +23,12 @@ export enum SessionServiceError {
 @Injectable()
 export class SessionService {
   constructor(private readonly repository: SessionRepository) {}
+
+  getSession(
+    sessionId: SessionID,
+  ): ResultAsync<SessionState | null, SessionRepositoryError | RedisServiceError> {
+    return this.repository.getSession(sessionId);
+  }
 
   enterSession(args: {
     user: User;
@@ -27,30 +42,43 @@ export class SessionService {
       isReady: false,
     };
 
-    return this.repository.createOrModifySession(args.sessionId, (session) => {
-      if (session === null) {
-        return ok({
-          id: args.sessionId,
-          phase: "lobby",
-          host: member,
-          messages: [],
-        });
-      }
+    return this.repository.transact(
+      args.sessionId,
+      (session): Result<TransformResult, SessionServiceError> => {
+        if (session === null) {
+          return ok({
+            action: "write",
+            session: {
+              id: args.sessionId,
+              phase: "lobby",
+              host: member,
+              messages: [],
+            },
+          });
+        }
 
-      if (session.host.id === member.id || session.guest?.id === member.id) {
-        return ok(null);
-      }
+        if (session.host.id === member.id) {
+          session.host.isConnected = true;
+          return ok({ action: "write", session });
+        }
 
-      if (session.phase !== "lobby") {
-        return err(SessionServiceError.LobbyClosed);
-      }
+        if (session.guest?.id === member.id) {
+          session.guest.isConnected = true;
+          return ok({ action: "write", session });
+        }
 
-      if (session.guest != null) {
-        return err(SessionServiceError.SessionFull);
-      }
+        if (session.phase !== "lobby") {
+          return err(SessionServiceError.LobbyClosed);
+        }
 
-      return ok({ ...session, guest: member });
-    });
+        if (session.guest != null) {
+          return err(SessionServiceError.SessionFull);
+        }
+
+        session.guest = member;
+        return ok({ action: "write", session });
+      },
+    );
   }
 
   leaveSession(args: {
@@ -59,22 +87,40 @@ export class SessionService {
   }): ResultAsync<void, SessionServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
 
-    return this.repository.modifyOrDeleteSession(sessionId, (session) => {
-      if (userId === session.guest?.id) {
-        session.guest.isConnected = false;
-        return ok(session);
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, SessionServiceError> => {
+        if (session === null) return err(SessionServiceError.NotInSession);
 
-      if (userId === session.host.id) {
+        const isHost = userId === session.host.id;
+        const isGuest = userId === session.guest?.id;
+
+        if (!isHost && !isGuest) {
+          return err(SessionServiceError.NotInSession);
+        }
+
+        // Mid-game or post-game: just mark the player as disconnected and hold state.
+        if (session.phase !== "lobby") {
+          if (isHost) session.host.isConnected = false;
+          else session.guest!.isConnected = false;
+          return ok({ action: "write", session });
+        }
+
+        // Lobby: guest leaves — mark disconnected.
+        if (isGuest) {
+          session.guest!.isConnected = false;
+          return ok({ action: "write", session });
+        }
+
+        // Lobby: host leaves — promote guest to host, or delete if empty.
         if (session.guest !== undefined) {
           session.host = session.guest;
-          return ok(session);
-        } else {
-          return ok(null);
+          session.guest = undefined;
+          return ok({ action: "write", session });
         }
-      }
 
-      return err(SessionServiceError.NotInSession);
-    });
+        return ok({ action: "delete" });
+      },
+    );
   }
 }

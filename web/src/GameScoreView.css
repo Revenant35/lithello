@@ -1,0 +1,70 @@
+.game-score {
+  padding: 1rem 1.25rem;
+  border: 1px solid #344039;
+  border-radius: 0.3rem;
+  color: #eef2e9;
+  background: #18201b;
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.16);
+}
+
+.game-score h2 {
+  margin: 0 0 0.65rem;
+  color: #8faa9a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.game-score dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.game-score dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.game-score dl > div:first-child {
+  padding-right: 1rem;
+  border-right: 1px solid #344039;
+}
+
+.game-score dl > div:last-child {
+  padding-left: 1rem;
+}
+
+.game-score dt {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #a6b0aa;
+  font-size: 0.78rem;
+}
+
+.game-score dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.game-score-disc {
+  display: inline-block;
+  width: 0.78rem;
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+
+.game-score-disc-black {
+  border: 1px solid #4a514d;
+  background: #090c0a;
+}
+
+.game-score-disc-white {
+  background: #ecebe3;
+}

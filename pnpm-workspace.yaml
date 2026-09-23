@@ -1,6 +1,7 @@
 packages:
   - "api"
   - "lib/*"
+  - "web"
 allowBuilds:
   cpu-features: true
   protobufjs: true

@@ -1,8 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import { SessionRepository, SessionRepositoryError } from "./session.repository.ts";
-import { PostGameMember, SessionID, UserID } from "@lithello/shared/types";
+import {
+  SessionRepository,
+  SessionRepositoryError,
+  type TransformResult,
+} from "./session.repository.ts";
+import { findPlayer } from "./session.utils.ts";
+import { SessionID, UserID } from "@lithello/shared/types";
 import { toGameState } from "@lithello/shared/util";
-import { err, ok, ResultAsync } from "neverthrow";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
 import { RedisServiceError } from "../redis/redis.service.ts";
 
 export enum RematchServiceError {
@@ -20,29 +25,25 @@ export class PostGameService {
     sessionId: SessionID;
   }): ResultAsync<void, RematchServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "postgame") {
-        return err(RematchServiceError.NotInPostGame);
-      }
 
-      let user: PostGameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, RematchServiceError> => {
+        if (session === null || session.phase !== "postgame") {
+          return err(RematchServiceError.NotInPostGame);
+        }
 
-      if (user === undefined) {
-        return err(RematchServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(RematchServiceError.NotInSession);
 
-      if (user.isRequestingRematch) {
-        return ok(null);
-      }
+        if (found.player.isRequestingRematch) {
+          return ok({ action: "noop" });
+        }
 
-      user.isRequestingRematch = true;
-      return ok(session);
-    });
+        found.player.isRequestingRematch = true;
+        return ok({ action: "write", session });
+      },
+    );
   }
 
   rematchRequestAccepted(args: {
@@ -50,35 +51,30 @@ export class PostGameService {
     sessionId: SessionID;
   }): ResultAsync<void, RematchServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "postgame") {
-        return err(RematchServiceError.NotInPostGame);
-      }
 
-      let user: PostGameMember | undefined;
-      let opponent: PostGameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-        opponent = session.guest;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-        opponent = session.host;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, RematchServiceError> => {
+        if (session === null || session.phase !== "postgame") {
+          return err(RematchServiceError.NotInPostGame);
+        }
 
-      if (user === undefined) {
-        return err(RematchServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(RematchServiceError.NotInSession);
 
-      if (!opponent || !opponent.isRequestingRematch) {
-        return err(RematchServiceError.UnknownError);
-      }
+        if (!found.opponent.isRequestingRematch) {
+          return err(RematchServiceError.UnknownError);
+        }
 
-      session = toGameState(session, {
-        whiteId: session.blackId,
-        blackId: session.whiteId,
-      });
-      return ok(session);
-    });
+        return ok({
+          action: "write",
+          session: toGameState(session, {
+            whiteId: session.blackId,
+            blackId: session.whiteId,
+          }),
+        });
+      },
+    );
   }
 
   rematchRequestDenied(args: {
@@ -86,32 +82,25 @@ export class PostGameService {
     sessionId: SessionID;
   }): ResultAsync<void, RematchServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "postgame") {
-        return err(RematchServiceError.NotInPostGame);
-      }
 
-      let user: PostGameMember | undefined;
-      let opponent: PostGameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-        opponent = session.guest;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-        opponent = session.host;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, RematchServiceError> => {
+        if (session === null || session.phase !== "postgame") {
+          return err(RematchServiceError.NotInPostGame);
+        }
 
-      if (user === undefined) {
-        return err(RematchServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(RematchServiceError.NotInSession);
 
-      if (!opponent || !opponent.isRequestingRematch) {
-        return err(RematchServiceError.UnknownError);
-      }
+        if (!found.opponent.isRequestingRematch) {
+          return err(RematchServiceError.UnknownError);
+        }
 
-      opponent.isRequestingRematch = false;
-      return ok(session);
-    });
+        found.opponent.isRequestingRematch = false;
+        return ok({ action: "write", session });
+      },
+    );
   }
 
   rematchRequestCancelled(args: {
@@ -119,28 +108,24 @@ export class PostGameService {
     sessionId: SessionID;
   }): ResultAsync<void, RematchServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "postgame") {
-        return err(RematchServiceError.NotInPostGame);
-      }
 
-      let user: PostGameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, RematchServiceError> => {
+        if (session === null || session.phase !== "postgame") {
+          return err(RematchServiceError.NotInPostGame);
+        }
 
-      if (user === undefined) {
-        return err(RematchServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(RematchServiceError.NotInSession);
 
-      if (!user.isRequestingRematch) {
-        return ok(null);
-      }
+        if (!found.player.isRequestingRematch) {
+          return ok({ action: "noop" });
+        }
 
-      user.isRequestingRematch = false;
-      return ok(session);
-    });
+        found.player.isRequestingRematch = false;
+        return ok({ action: "write", session });
+      },
+    );
   }
 }

@@ -101,9 +101,9 @@ describe("LobbyStateSchema", () => {
   });
 
   it("rejects a startAt value that is not an iso date string", () => {
-    expect(
-      LobbyStateSchema.safeParse({ ...validLobbyState, startAt: "not-a-date" }).success,
-    ).toBe(false);
+    expect(LobbyStateSchema.safeParse({ ...validLobbyState, startAt: "not-a-date" }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -185,6 +185,8 @@ const validPostGameState = {
   whiteId: HOST_ID,
   blackId: GUEST_ID,
   completion: { reason: "victory", winnerId: HOST_ID },
+  board: INITIAL_BOARD,
+  history: [],
 };
 
 describe("PostGameStateSchema", () => {

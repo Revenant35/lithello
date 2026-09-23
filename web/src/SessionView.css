@@ -1,0 +1,74 @@
+.session-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: min(100%, 34rem);
+  min-height: 12rem;
+  margin: clamp(3rem, 12vh, 8rem) auto 0;
+  padding: 1.5rem;
+  border: 1px solid #344039;
+  color: #eef2e9;
+  background: #18201b;
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.2);
+}
+
+.session-status h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+.session-status > .status-mark {
+  flex: 0 0 auto;
+  border-color: #59655e;
+  border-top-color: #69bb91;
+}
+
+.session-error p:not(.game-kicker) {
+  margin: 0.75rem 0 1.25rem;
+  color: #a6b0aa;
+  line-height: 1.5;
+}
+
+.session-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.session-error-actions a {
+  display: inline-block;
+  color: #c5d0c9;
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.session-error-actions a:hover {
+  color: #fff;
+}
+
+.session-error-actions .session-create-link {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #4c8f70;
+  color: #f4f8f5;
+  background: #276047;
+  font-weight: 700;
+}
+
+.session-error-actions .session-create-link:hover {
+  background: #32795a;
+}
+
+.session-home-link {
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid currentcolor;
+}
+
+@media (max-width: 420px) {
+  .session-error-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

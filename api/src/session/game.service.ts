@@ -1,33 +1,117 @@
 import { Injectable } from "@nestjs/common";
 import type {
-  GameMember,
+  GameCompletion,
+  GameState,
+  PlayerColor,
   SessionID,
-  SessionState,
   TurnAction,
   UserID,
 } from "@lithello/shared/types";
-import { toPostGameState } from "@lithello/shared/util";
-import { err, ok, ResultAsync } from "neverthrow";
-import { SessionRepository, SessionRepositoryError } from "./session.repository.ts";
+import {
+  getOpponentColor,
+  getValidMoveLocations,
+  getPlayerScore,
+  performMove,
+  toPostGameState,
+} from "@lithello/shared/util";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
+import {
+  SessionRepository,
+  SessionRepositoryError,
+  type TransformResult,
+} from "./session.repository.ts";
 import { RedisServiceError } from "../redis/redis.service.ts";
+import { findPlayer } from "./session.utils.ts";
 
 export enum GameServiceError {
   NotInGame = "Not In Game",
   NotInSession = "Not In Session",
+  NotYourTurn = "Not Your Turn",
+  IllegalMove = "Illegal Move",
   NoDrawOffer = "No Draw Offer",
   UnknownError = "Unknown Error",
+}
+
+function resolveCompletion(session: GameState): GameCompletion {
+  const whiteScore = getPlayerScore(session.board, "w");
+  const blackScore = getPlayerScore(session.board, "b");
+  if (whiteScore > blackScore) return { reason: "victory", winnerId: session.whiteId };
+  if (blackScore > whiteScore) return { reason: "victory", winnerId: session.blackId };
+  return { reason: "draw" };
 }
 
 @Injectable()
 export class GameService {
   constructor(private readonly repository: SessionRepository) {}
 
-  async action(
-    _userId: string,
-    _sessionId: string,
-    _action: TurnAction,
-  ): Promise<SessionState | null> {
-    return null;
+  action(args: {
+    userId: UserID;
+    sessionId: SessionID;
+    action: TurnAction;
+  }): ResultAsync<void, GameServiceError | SessionRepositoryError | RedisServiceError> {
+    const { userId, sessionId, action } = args;
+
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, GameServiceError> => {
+        if (session === null || session.phase !== "game") {
+          return err(GameServiceError.NotInGame);
+        }
+
+        if (session.activePlayerId !== userId) {
+          return err(GameServiceError.NotYourTurn);
+        }
+
+        const playerColor: PlayerColor = session.whiteId === userId ? "w" : "b";
+        const opponentColor = getOpponentColor(playerColor);
+        const opponentId = playerColor === "w" ? session.blackId : session.whiteId;
+
+        if (action.kind === "pass") {
+          // A pass is only legal when the active player has no valid moves.
+          if (getValidMoveLocations(session.board, playerColor).length > 0) {
+            return err(GameServiceError.IllegalMove);
+          }
+
+          session.history.push(action);
+
+          if (getValidMoveLocations(session.board, opponentColor).length === 0) {
+            // Neither player can move — game over by score.
+            return ok({
+              action: "write",
+              session: toPostGameState(session, resolveCompletion(session)),
+            });
+          }
+
+          session.activePlayerId = opponentId;
+          return ok({ action: "write", session });
+        }
+
+        // kind === "move"
+        const moveResult = performMove(session.board, action.location, playerColor);
+        if (moveResult.isErr()) {
+          return err(GameServiceError.IllegalMove);
+        }
+
+        session.board = moveResult.value;
+        session.history.push(action);
+
+        if (getValidMoveLocations(session.board, opponentColor).length > 0) {
+          session.activePlayerId = opponentId;
+          return ok({ action: "write", session });
+        }
+
+        if (getValidMoveLocations(session.board, playerColor).length > 0) {
+          // Active player goes again (opponent must pass).
+          return ok({ action: "write", session });
+        }
+
+        // Neither player can move — game over by score.
+        return ok({
+          action: "write",
+          session: toPostGameState(session, resolveCompletion(session)),
+        });
+      },
+    );
   }
 
   drawOffered(args: {
@@ -35,29 +119,25 @@ export class GameService {
     sessionId: SessionID;
   }): ResultAsync<void, GameServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "game") {
-        return err(GameServiceError.NotInGame);
-      }
 
-      let user: GameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, GameServiceError> => {
+        if (session === null || session.phase !== "game") {
+          return err(GameServiceError.NotInGame);
+        }
 
-      if (user === undefined) {
-        return err(GameServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(GameServiceError.NotInSession);
 
-      if (user.isOfferingDraw) {
-        return ok(null);
-      }
+        if (found.player.isOfferingDraw) {
+          return ok({ action: "noop" });
+        }
 
-      user.isOfferingDraw = true;
-      return ok(session);
-    });
+        found.player.isOfferingDraw = true;
+        return ok({ action: "write", session });
+      },
+    );
   }
 
   drawOfferAccepted(args: {
@@ -65,39 +145,24 @@ export class GameService {
     sessionId: SessionID;
   }): ResultAsync<void, GameServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "game") {
-        return err(GameServiceError.NotInGame);
-      }
 
-      let user: GameMember | undefined;
-      let opponent: GameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-        opponent = session.guest;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-        opponent = session.host;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, GameServiceError> => {
+        if (session === null || session.phase !== "game") {
+          return err(GameServiceError.NotInGame);
+        }
 
-      if (user === undefined) {
-        return err(GameServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(GameServiceError.NotInSession);
 
-      if (opponent === undefined) {
-        return err(GameServiceError.UnknownError);
-      }
+        if (!found.opponent.isOfferingDraw) {
+          return err(GameServiceError.NoDrawOffer);
+        }
 
-      if (!opponent.isOfferingDraw) {
-        return err(GameServiceError.NoDrawOffer);
-      }
-
-      session = toPostGameState(session, {
-        reason: "draw",
-      });
-
-      return ok(session);
-    });
+        return ok({ action: "write", session: toPostGameState(session, { reason: "draw" }) });
+      },
+    );
   }
 
   drawOfferDenied(args: {
@@ -105,36 +170,25 @@ export class GameService {
     sessionId: SessionID;
   }): ResultAsync<void, GameServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "game") {
-        return err(GameServiceError.NotInGame);
-      }
 
-      let user: GameMember | undefined;
-      let opponent: GameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-        opponent = session.guest;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-        opponent = session.host;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, GameServiceError> => {
+        if (session === null || session.phase !== "game") {
+          return err(GameServiceError.NotInGame);
+        }
 
-      if (user === undefined) {
-        return err(GameServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(GameServiceError.NotInSession);
 
-      if (opponent === undefined) {
-        return err(GameServiceError.UnknownError);
-      }
+        if (!found.opponent.isOfferingDraw) {
+          return err(GameServiceError.NoDrawOffer);
+        }
 
-      if (!opponent.isOfferingDraw) {
-        return err(GameServiceError.NoDrawOffer);
-      }
-
-      opponent.isOfferingDraw = false;
-      return ok(session);
-    });
+        found.opponent.isOfferingDraw = false;
+        return ok({ action: "write", session });
+      },
+    );
   }
 
   drawOfferCancelled(args: {
@@ -142,29 +196,25 @@ export class GameService {
     sessionId: SessionID;
   }): ResultAsync<void, GameServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "game") {
-        return err(GameServiceError.NotInGame);
-      }
 
-      let user: GameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, GameServiceError> => {
+        if (session === null || session.phase !== "game") {
+          return err(GameServiceError.NotInGame);
+        }
 
-      if (user === undefined) {
-        return err(GameServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(GameServiceError.NotInSession);
 
-      if (!user.isOfferingDraw) {
-        return ok(null);
-      }
+        if (!found.player.isOfferingDraw) {
+          return ok({ action: "noop" });
+        }
 
-      user.isOfferingDraw = false;
-      return ok(session);
-    });
+        found.player.isOfferingDraw = false;
+        return ok({ action: "write", session });
+      },
+    );
   }
 
   resigned(args: {
@@ -172,36 +222,24 @@ export class GameService {
     sessionId: SessionID;
   }): ResultAsync<void, GameServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId } = args;
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "game") {
-        return err(GameServiceError.NotInGame);
-      }
 
-      let user: GameMember | undefined;
-      let opponent: GameMember | undefined;
-      if (userId === session.host.id) {
-        user = session.host;
-        opponent = session.guest;
-      } else if (userId === session.guest.id) {
-        user = session.guest;
-        opponent = session.host;
-      }
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, GameServiceError> => {
+        if (session === null || session.phase !== "game") {
+          return err(GameServiceError.NotInGame);
+        }
 
-      if (user === undefined) {
-        return err(GameServiceError.NotInSession);
-      }
+        const found = findPlayer(session.host, session.guest, userId);
+        if (!found) return err(GameServiceError.NotInSession);
 
-      if (opponent === undefined) {
-        return err(GameServiceError.UnknownError);
-      }
+        found.opponent.wins++;
 
-      opponent.wins++;
-      session = toPostGameState(session, {
-        reason: "resignation",
-        resignerId: userId,
-      });
-
-      return ok(session);
-    });
+        return ok({
+          action: "write",
+          session: toPostGameState(session, { reason: "resignation", resignerId: userId }),
+        });
+      },
+    );
   }
 }

@@ -3,11 +3,31 @@ import { type SessionID, type SessionState, SessionStateSchema } from "@lithello
 
 import { RedisService, RedisServiceError } from "../redis/redis.service.ts";
 import { err, ok, Result, ResultAsync } from "neverthrow";
-import type { RedisClientType } from "redis";
+import { type RedisClientType, WatchError } from "redis";
 
 export enum SessionRepositoryError {
   InvalidSession = "Invalid Session",
-  SessionNotFound = "Session Not Found",
+}
+
+/**
+ * Explicit intent returned by a transform passed to `modify` or `createOrModify`.
+ *
+ * - `write`  — persist the new session state
+ * - `delete` — remove the session from Redis
+ * - `noop`   — leave Redis unchanged (e.g. idempotent action already applied)
+ */
+export type TransformResult =
+  | { action: "write"; session: SessionState }
+  | { action: "delete" }
+  | { action: "noop" };
+
+// exec() returns null when the WATCHed key was modified before EXEC ran.
+// Throwing WatchError here lets withBackoff catch it and retry the operation.
+async function execOrRetry(pipeline: ReturnType<RedisClientType["multi"]>): Promise<void> {
+  const result = await pipeline.exec();
+  if (result === null) {
+    throw new WatchError();
+  }
 }
 
 function decodeSession(raw: string, logger: Logger): Result<SessionState, SessionRepositoryError> {
@@ -40,51 +60,13 @@ export class SessionRepository {
     });
   }
 
-  createSession(session: SessionState): ResultAsync<void, RedisServiceError> {
-    const key = this.formatKey(session.id);
-    return this.redis.set(key, JSON.stringify(session), { condition: "NX" });
-  }
-
-  updateSession(id: SessionID, session: SessionState): ResultAsync<void, RedisServiceError> {
-    const key = this.formatKey(id);
-    return this.redis.set(key, JSON.stringify(session), { condition: "XX" });
-  }
-
-  modifySession<E>(
+  /**
+   * Atomically read a session (or null if absent), apply a transform, and act on the result.
+   * Callers that require the session to exist should return an error when they receive null.
+   */
+  transact<E>(
     id: SessionID,
-    transform: (session: SessionState) => Result<SessionState | null, E>,
-  ): ResultAsync<void, E | SessionRepositoryError | RedisServiceError> {
-    return this.redis.withWatch(
-      this.formatKey(id),
-      async (client: RedisClientType, key: string) => {
-        const raw = await client.get(key);
-
-        if (raw === null) {
-          return err(SessionRepositoryError.SessionNotFound);
-        }
-
-        const decoded = decodeSession(raw, this.logger);
-        if (decoded.isErr()) return err(decoded.error);
-
-        const changed = transform(decoded.value);
-        if (changed.isErr()) return err(changed.error);
-
-        const next = changed.value;
-        if (next === null) return ok(undefined);
-
-        if (next.id !== id) {
-          return err(SessionRepositoryError.InvalidSession);
-        }
-
-        await client.multi().set(key, JSON.stringify(next)).exec();
-        return ok(undefined);
-      },
-    );
-  }
-
-  createOrModifySession<E>(
-    id: SessionID,
-    transform: (session: SessionState | null) => Result<SessionState | null, E>,
+    transform: (session: SessionState | null) => Result<TransformResult, E>,
   ): ResultAsync<void, E | SessionRepositoryError | RedisServiceError> {
     return this.redis.withWatch(
       this.formatKey(id),
@@ -98,52 +80,18 @@ export class SessionRepository {
           session = decoded.value;
         }
 
-        const changed = transform(session);
-        if (changed.isErr()) return err(changed.error);
+        const result = transform(session !== null ? structuredClone(session) : null);
+        if (result.isErr()) return err(result.error);
 
-        const next = changed.value;
-        if (next === null) return ok(undefined);
+        const outcome = result.value;
 
-        if (next.id !== id) {
-          return err(SessionRepositoryError.InvalidSession);
-        }
-
-        await client.multi().set(key, JSON.stringify(next)).exec();
-        return ok(undefined);
-      },
-    );
-  }
-
-  modifyOrDeleteSession<E>(
-    id: SessionID,
-    transform: (session: SessionState) => Result<SessionState | null, E>,
-  ): ResultAsync<void, E | SessionRepositoryError | RedisServiceError> {
-    return this.redis.withWatch(
-      this.formatKey(id),
-      async (client: RedisClientType, key: string) => {
-        const raw = await client.get(key);
-
-        if (raw === null) {
-          return err(SessionRepositoryError.SessionNotFound);
-        }
-
-        const decoded = decodeSession(raw, this.logger);
-        if (decoded.isErr()) return err(decoded.error);
-
-        const changed = transform(decoded.value);
-        if (changed.isErr()) return err(changed.error);
-
-        const next = changed.value;
-        if (next === null) {
-          await client.multi().del(key).exec();
+        if (outcome.action === "noop") return ok(undefined);
+        if (outcome.action === "delete") {
+          await execOrRetry(client.multi().del(key));
           return ok(undefined);
         }
 
-        if (next.id !== id) {
-          return err(SessionRepositoryError.InvalidSession);
-        }
-
-        await client.multi().set(key, JSON.stringify(next)).exec();
+        await execOrRetry(client.multi().set(key, JSON.stringify(outcome.session)));
         return ok(undefined);
       },
     );

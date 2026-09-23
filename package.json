@@ -6,6 +6,7 @@
     "build:api": "pnpm --filter api build:watch",
     "dev:api": "pnpm --filter api dev",
     "dev:shared": "pnpm --filter @lithello/shared dev",
+    "dev:web": "pnpm --filter web dev",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",

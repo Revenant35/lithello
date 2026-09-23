@@ -75,6 +75,8 @@ export function toPostGameState(state: GameState, completion: GameCompletion): P
     guest: toPostGameMember(state.guest),
     messages: state.messages,
     phase: "postgame",
-    completion: completion,
+    completion,
+    board: state.board,
+    history: state.history,
   };
 }

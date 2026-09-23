@@ -1,0 +1,484 @@
+:root {
+  color: #eef2e9;
+  background: #151d18;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #d94d32;
+  outline-offset: 3px;
+}
+
+/* ─── Page shell ─────────────────────────────────────────────────────────── */
+
+.page-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+  min-height: 100vh;
+}
+
+/* ─── Brand panel ────────────────────────────────────────────────────────── */
+
+.brand-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100vh;
+  padding: clamp(2rem, 5vw, 5.5rem);
+  overflow: hidden;
+  color: #f2ecdc;
+  background: #183f32;
+  isolation: isolate;
+}
+
+.brand-panel::before {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    linear-gradient(rgba(242, 236, 220, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 236, 220, 0.08) 1px, transparent 1px);
+  background-size: clamp(42px, 6vw, 72px) clamp(42px, 6vw, 72px);
+  content: "";
+  mask-image: linear-gradient(to bottom right, black, transparent 82%);
+}
+
+.brand-copy {
+  max-width: 680px;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.edition,
+.brand-footer,
+.eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.edition {
+  margin: 0.7rem 0 clamp(3rem, 12vh, 8rem);
+  color: #aec5b6;
+}
+
+.brand-panel h1 {
+  max-width: 760px;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3.2rem, 7.4vw, 7.8rem);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+}
+
+.brand-intro {
+  max-width: 520px;
+  margin: 2rem 0 0;
+  color: #cbd8cf;
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  line-height: 1.6;
+}
+
+.brand-footer {
+  margin: 4rem 0 0;
+  color: #aec5b6;
+}
+
+.board-art {
+  position: absolute;
+  right: clamp(-7rem, -4vw, -2rem);
+  bottom: clamp(2rem, 8vh, 7rem);
+  width: clamp(260px, 33vw, 520px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(242, 236, 220, 0.24);
+  transform: rotate(-8deg);
+}
+
+.board-art::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(242, 236, 220, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 236, 220, 0.16) 1px, transparent 1px);
+  background-size: 25% 25%;
+  content: "";
+}
+
+.disc {
+  position: absolute;
+  z-index: 1;
+  width: 18%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: 0 10px 22px rgba(4, 18, 13, 0.35);
+}
+
+.disc-light {
+  background: #f2ecdc;
+}
+
+.disc-dark {
+  background: #111713;
+}
+
+.disc-one {
+  top: 28.5%;
+  left: 28.5%;
+}
+
+.disc-two {
+  top: 28.5%;
+  left: 53.5%;
+}
+
+.disc-three {
+  top: 53.5%;
+  left: 53.5%;
+}
+
+.disc-four {
+  top: 53.5%;
+  left: 28.5%;
+}
+
+/* ─── Content panel ──────────────────────────────────────────────────────── */
+
+.content-panel {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: clamp(2rem, 6vw, 6rem);
+  background:
+    radial-gradient(circle at 80% 20%, rgba(40, 116, 88, 0.14), transparent 28rem),
+    #151d18;
+}
+
+/* ─── Shared panel widths ────────────────────────────────────────────────── */
+
+.auth-panel,
+.status-page,
+.status-panel {
+  width: min(100%, 440px);
+}
+
+/* ─── Eyebrow label ──────────────────────────────────────────────────────── */
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: #69bb91;
+}
+
+/* ─── Auth / home headings ───────────────────────────────────────────────── */
+
+.auth-panel h2,
+.status-page h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.4rem, 4.5vw, 4.3rem);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.auth-intro,
+.status-page > p,
+.status-panel p {
+  margin: 1.15rem 0 0;
+  color: #8faa9a;
+  line-height: 1.6;
+}
+
+/* ─── Auth mode switch ───────────────────────────────────────────────────── */
+
+.auth-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 2.4rem 0 2rem;
+  border-bottom: 1px solid #2e3d35;
+}
+
+.auth-switch button {
+  padding: 0.85rem 0;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #5a6e62;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+.auth-switch button.active {
+  border-color: #69bb91;
+  color: #eef2e9;
+}
+
+/* ─── Auth form ──────────────────────────────────────────────────────────── */
+
+.auth-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.55rem;
+  color: #8faa9a;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 0.95rem 0;
+  border: 0;
+  border-bottom: 1px solid #344039;
+  border-radius: 0;
+  color: #eef2e9;
+  background: transparent;
+  font-size: 1rem;
+  text-transform: none;
+}
+
+.auth-form input::placeholder {
+  color: #4a5e53;
+}
+
+.auth-form input:focus {
+  border-bottom-color: #69bb91;
+  outline: none;
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+
+.primary-button,
+.secondary-button {
+  min-height: 52px;
+  padding: 0.9rem 1.4rem;
+  border: 1px solid #4c8f70;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.primary-button {
+  margin-top: 0.75rem;
+  color: #f4f8f5;
+  background: #276047;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #32795a;
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.secondary-button {
+  margin-top: 2.5rem;
+  color: #eef2e9;
+  background: transparent;
+}
+
+.secondary-button:hover {
+  background: #1e2d24;
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentcolor;
+  color: #8faa9a;
+  background: transparent;
+  font-weight: 750;
+}
+
+.text-button:hover {
+  color: #eef2e9;
+}
+
+.home-sign-out {
+  margin-top: 1.5rem;
+}
+
+.primary-link {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  margin-top: 2.25rem;
+  padding: 0.9rem 1.4rem;
+  border: 1px solid #4c8f70;
+  color: #f4f8f5;
+  background: #276047;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.primary-link:hover {
+  background: #32795a;
+}
+
+.inline-link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: #8faa9a;
+  text-decoration: none;
+}
+
+.inline-link:hover {
+  color: #eef2e9;
+}
+
+/* ─── Form error ─────────────────────────────────────────────────────────── */
+
+.form-error {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid #c95b48;
+  color: #e8a090;
+  background: rgba(180, 60, 40, 0.12);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* ─── Status panel (loading / error states) ──────────────────────────────── */
+
+.status-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-panel p {
+  margin: 0;
+}
+
+.status-mark {
+  width: 16px;
+  aspect-ratio: 1;
+  border: 2px solid #2e3d35;
+  border-top-color: #69bb91;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Home page ──────────────────────────────────────────────────────────── */
+
+.status-page h2 {
+  font-size: clamp(2.4rem, 4.5vw, 4.3rem);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  .page-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-panel {
+    min-height: 42vh;
+    padding: 2rem clamp(1.4rem, 7vw, 4rem) 3rem;
+  }
+
+  .edition {
+    margin-bottom: 3.5rem;
+  }
+
+  .brand-panel h1 {
+    max-width: 560px;
+    font-size: clamp(3.1rem, 12vw, 6.2rem);
+  }
+
+  .brand-intro {
+    max-width: 430px;
+  }
+
+  .board-art {
+    right: -8rem;
+    bottom: -5rem;
+    width: 300px;
+    opacity: 0.72;
+  }
+
+  .brand-footer {
+    display: none;
+  }
+
+  .content-panel {
+    min-height: 58vh;
+    padding: 3.5rem clamp(1.4rem, 7vw, 4rem) 5rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .brand-panel {
+    min-height: 360px;
+  }
+
+  .brand-intro {
+    max-width: 280px;
+  }
+
+  .content-panel {
+    place-items: start stretch;
+  }
+
+  .auth-panel h2,
+  .status-page h2 {
+    font-size: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-mark {
+    animation: none;
+  }
+}

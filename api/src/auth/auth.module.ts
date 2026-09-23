@@ -19,6 +19,7 @@ import { POSTGRES_DIALECT } from "../database/postgres-dialect.provider.ts";
             },
           },
           baseURL: config.getOrThrow<string>("BETTER_AUTH_URL"),
+          trustedOrigins: config.getOrThrow<string>("BETTER_AUTH_TRUSTED_ORIGINS").split(","),
           database: {
             dialect,
             type: "postgres",

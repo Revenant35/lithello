@@ -1,0 +1,216 @@
+.move-history {
+  display: flex;
+  align-self: stretch;
+  flex-direction: column;
+  min-height: 18rem;
+  max-height: 43rem;
+  overflow: hidden;
+  border: 1px solid #344039;
+  border-radius: 0.3rem;
+  color: #eef2e9;
+  background: #18201b;
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.2);
+}
+
+.move-history-header {
+  border-bottom: 1px solid #344039;
+}
+
+.move-history-header h2 {
+  margin: 0;
+  padding: 1.2rem 1.25rem 1rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.move-history-columns,
+.move-history-list li {
+  display: grid;
+  grid-template-columns: 2.5rem repeat(2, minmax(0, 1fr));
+  align-items: center;
+}
+
+.move-history-columns {
+  padding: 0 1.25rem 0.65rem;
+  color: #8faa9a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.move-history-list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.move-history-list li {
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+.move-history-list li:nth-child(even) {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.move-history-number {
+  color: #77857c;
+}
+
+.move-history-pass {
+  color: #77857c;
+}
+
+.move-history-draw-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid #4a3f1a;
+  background: rgba(180, 140, 30, 0.1);
+}
+
+.move-history-draw-alert p {
+  margin: 0;
+  color: #c8a84a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.move-history-draw-alert-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.move-history-draw-alert-actions button {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #4a3f1a;
+  border-radius: 0.2rem;
+  color: #c8a84a;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.move-history-draw-alert-actions button:hover {
+  border-color: #7a6828;
+  color: #e0c060;
+  background: rgba(180, 140, 30, 0.18);
+}
+
+.move-history-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid #344039;
+}
+
+.move-history-footer button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.move-history-footer button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #765047;
+  border-radius: 0.2rem;
+  color: #d29a8e;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.move-history-footer button:hover {
+  border-color: #a65a4b;
+  color: #f0b4a8;
+  background: rgba(146, 61, 48, 0.14);
+}
+
+.resign-dialog {
+  width: min(calc(100% - 2rem), 26rem);
+  padding: 1.5rem;
+  border: 1px solid #49564e;
+  border-radius: 0.3rem;
+  color: #eef2e9;
+  background: #18201b;
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.55);
+}
+
+.resign-dialog::backdrop {
+  background: rgba(5, 8, 6, 0.72);
+}
+
+.resign-dialog h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.resign-dialog p {
+  margin: 0.75rem 0 1.5rem;
+  color: #a6b0aa;
+  line-height: 1.5;
+}
+
+.resign-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.resign-dialog-actions button {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #59655e;
+  color: #eef2e9;
+  background: transparent;
+}
+
+.resign-dialog-actions button:hover {
+  background: #26312a;
+}
+
+.resign-dialog-actions .resign-confirm-button {
+  border-color: #a84838;
+  color: #fff;
+  background: #923d30;
+}
+
+.resign-dialog-actions .resign-confirm-button:hover {
+  background: #ad4939;
+}
+
+.move-history-empty {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  margin: 0;
+  color: #77857c;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 760px) {
+  .move-history {
+    min-height: 12rem;
+    max-height: 22rem;
+  }
+}

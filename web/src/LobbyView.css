@@ -1,0 +1,250 @@
+.lobby-board {
+  position: relative;
+  min-width: 0;
+}
+
+.lobby-board::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.3rem;
+  background: rgba(8, 13, 10, 0.32);
+  content: "";
+  pointer-events: none;
+}
+
+.lobby-board-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  padding: 1.1rem 1.4rem;
+  border: 1px solid rgba(238, 242, 233, 0.24);
+  color: #eef2e9;
+  background: rgba(16, 24, 19, 0.9);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.3);
+  transform: translate(-50%, -50%);
+}
+
+.lobby-board-message span {
+  color: #8faa9a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lobby-board-message strong {
+  margin-top: 0.35rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.25rem, 3vw, 1.8rem);
+  font-weight: 400;
+}
+
+.lobby-session-panel {
+  display: flex;
+  align-self: stretch;
+  flex-direction: column;
+  min-height: 30rem;
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+  border: 1px solid #344039;
+  border-radius: 0.3rem;
+  background: #18201b;
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.2);
+}
+
+.lobby-session-panel h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.lobby-intro {
+  margin: 0.8rem 0 0;
+  color: #a6b0aa;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.lobby-player-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+  padding: 1.5rem 0;
+  border-top: 1px solid #344039;
+  border-bottom: 1px solid #344039;
+  list-style: none;
+}
+
+.lobby-player-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.7rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.lobby-player-list .lobby-player-empty {
+  color: #657269;
+  background: transparent;
+  outline: 1px dashed #3c4841;
+  outline-offset: -1px;
+}
+
+.lobby-player-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  border-radius: 50%;
+  color: #b5c4bb;
+  background: #27332c;
+  aspect-ratio: 1;
+}
+
+.lobby-player-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.lobby-player-copy strong {
+  font-size: 0.85rem;
+}
+
+.lobby-player-copy small,
+.lobby-player-status {
+  color: #98a49c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lobby-player-status {
+  text-align: right;
+}
+
+.lobby-player-empty .lobby-player-copy strong {
+  color: #a6b0aa;
+}
+
+.lobby-player-ready {
+  color: #69bb91;
+}
+
+.lobby-player-disconnected {
+  color: #d29a8e;
+}
+
+.lobby-invitation > p {
+  margin: 0 0 0.5rem;
+  color: #8faa9a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lobby-invitation > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid #3f4b44;
+}
+
+.lobby-invitation code {
+  align-self: center;
+  min-width: 0;
+  padding: 0.72rem;
+  overflow: hidden;
+  color: #b8c5bd;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lobby-invitation button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-left: 1px solid #3f4b44;
+  color: #eef2e9;
+  background: #26332b;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.lobby-invitation button:hover {
+  background: #314239;
+}
+
+.lobby-invitation > small {
+  display: block;
+  margin-top: 0.5rem;
+  color: #d29a8e;
+  font-size: 0.72rem;
+}
+
+.lobby-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+
+.lobby-actions button {
+  min-height: 2.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.lobby-ready-button {
+  border: 1px solid #4c8f70;
+  color: #f4f8f5;
+  background: #276047;
+}
+
+.lobby-ready-button:hover:not(:disabled) {
+  background: #32795a;
+}
+
+.lobby-ready-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.lobby-unready-button {
+  border-color: #59655e;
+  color: #c3ccc6;
+  background: transparent;
+}
+
+.lobby-leave-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 0;
+  color: #8f9a93;
+  background: transparent;
+}
+
+.lobby-leave-button:hover {
+  color: #eef2e9;
+}
+
+@media (max-width: 760px) {
+  .lobby-session-panel {
+    min-height: 0;
+  }
+}

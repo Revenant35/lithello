@@ -1,29 +1,12 @@
-import {
-  Generated,
-  Insertable,
-  Selectable,
-  Updateable,
-} from 'kysely';
+import { Generated, Insertable, Selectable, Updateable } from "kysely";
 
-export type GameStatus =
-  | 'active'
-  | 'finished'
-  | 'abandoned';
+export type GameStatus = "active" | "finished" | "abandoned";
 
-export type GameResult =
-  | 'black'
-  | 'white'
-  | 'draw';
+export type GameResult = "black" | "white" | "draw";
 
-export type GameEndReason =
-  | 'normal'
-  | 'resignation'
-  | 'timeout'
-  | 'disconnect';
+export type GameEndReason = "normal" | "resignation" | "timeout" | "disconnect";
 
-export type PlayerColor =
-  | 'black'
-  | 'white';
+export type PlayerColor = "black" | "white";
 
 export interface GameTable {
   id: string;

@@ -76,6 +76,8 @@ export const PostGameStateSchema = BaseSessionStateSchema.extend({
   host: PostGameMemberSchema,
   guest: PostGameMemberSchema,
   completion: GameCompletionSchema,
+  board: BoardSchema,
+  history: z.array(TurnActionSchema),
 });
 export type PostGameState = z.infer<typeof PostGameStateSchema>;
 

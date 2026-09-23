@@ -1,7 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { type SessionID, type UserID, type LobbyMember } from "@lithello/shared/types";
-import { err, ok, ResultAsync } from "neverthrow";
-import { SessionRepository, SessionRepositoryError } from "./session.repository.ts";
+import { toGameState } from "@lithello/shared/util";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
+import {
+  SessionRepository,
+  SessionRepositoryError,
+  type TransformResult,
+} from "./session.repository.ts";
 import { RedisServiceError } from "../redis/redis.service.ts";
 
 export enum LobbyServiceError {
@@ -20,30 +25,45 @@ export class LobbyService {
   }): ResultAsync<void, LobbyServiceError | SessionRepositoryError | RedisServiceError> {
     const { userId, sessionId, isReady } = args;
 
-    return this.repository.modifySession(sessionId, (session) => {
-      if (session.phase !== "lobby") {
-        return err(LobbyServiceError.LobbyClosed);
-      }
+    // Resolve color assignment outside the transform so it's stable across retries.
+    const assignHostAsBlack = Math.random() < 0.5;
 
-      const { host, guest } = session;
-      const isHost = host.id === userId;
-      const isGuest = guest?.id === userId;
+    return this.repository.transact(
+      sessionId,
+      (session): Result<TransformResult, LobbyServiceError> => {
+        if (session === null || session.phase !== "lobby") {
+          return err(LobbyServiceError.LobbyClosed);
+        }
 
-      if (!isHost && !isGuest) {
-        return err(LobbyServiceError.NotInSession);
-      }
+        const { host, guest } = session;
+        const isHost = host.id === userId;
+        const isGuest = guest?.id === userId;
 
-      const player = isHost ? host : (guest as LobbyMember);
+        if (!isHost && !isGuest) {
+          return err(LobbyServiceError.NotInSession);
+        }
 
-      if (player.isReady === isReady) {
-        return ok(null);
-      }
+        const player = isHost ? host : (guest as LobbyMember);
 
-      const updated = { ...player, isReady };
+        if (player.isReady === isReady) {
+          return ok({ action: "noop" });
+        }
 
-      // TODO: If both players are readied up, transition to game
+        player.isReady = isReady;
 
-      return ok(isHost ? { ...session, host: updated } : { ...session, guest: updated });
-    });
+        if (host.isReady && guest?.isReady) {
+          return ok({
+            action: "write",
+            session: toGameState(session, {
+              blackId: assignHostAsBlack ? host.id : guest.id,
+              whiteId: assignHostAsBlack ? guest.id : host.id,
+              guest,
+            }),
+          });
+        }
+
+        return ok({ action: "write", session });
+      },
+    );
   }
 }
