@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
+    "start": "node --enable-source-maps dist/main.js",
     "clean": "tsc --build --clean",
     "db:migrate": "pnpm run build && node --enable-source-maps dist/migrate.js latest",
     "db:migrate:down": "pnpm run build && node --enable-source-maps dist/migrate.js down",
