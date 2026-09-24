@@ -1,61 +1,56 @@
 import { Generated, Insertable, Selectable, Updateable } from "kysely";
 
-export type GameStatus = "active" | "finished" | "abandoned";
-
-export type GameResult = "black" | "white" | "draw";
-
-export type GameEndReason = "normal" | "resignation" | "timeout" | "disconnect";
-
-export type PlayerColor = "black" | "white";
+export type GameStatus = "active" | "finished";
+export type GameResult = "white_win" | "black_win" | "draw";
+export type GameEndReason = "normal" | "resignation" | "timeout";
+export type GameMoveKind = "move" | "pass";
 
 export interface GameTable {
-  id: string;
-
-  black_user_id: string;
-  white_user_id: string;
-
-  status: Generated<GameStatus>;
+  id: Generated<string>;
+  white_id: string;
+  black_id: string;
+  start_clock_ms: number;
+  status: GameStatus;
   result: GameResult | null;
   end_reason: GameEndReason | null;
-
-  current_board: string;
-  current_turn: PlayerColor;
-
-  version: Generated<number>;
-
-  black_score: number | null;
-  white_score: number | null;
-
   started_at: Generated<Date>;
   ended_at: Date | null;
-
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
 }
 
-export interface GameMoveTable {
-  id: string;
-
+export interface GameActionTable {
+  id: Generated<string>;
   game_id: string;
   user_id: string;
-
-  move_number: number;
-
-  x: number;
-  y: number;
-
+  action_number: number;
+  kind: GameMoveKind;
+  clock_ms_remaining: number;
+  row: number | null;
+  col: number | null;
   created_at: Generated<Date>;
 }
 
-export type Game = Selectable<GameTable>;
-export type NewGame = Insertable<GameTable>;
-export type GameUpdate = Updateable<GameTable>;
+export interface GameMessageTable {
+  id: Generated<string>;
+  game_id: string;
+  user_id: string;
+  content: string;
+  created_at: Generated<Date>;
+}
 
-export type GameMove = Selectable<GameMoveTable>;
-export type NewGameMove = Insertable<GameMoveTable>;
-export type GameMoveUpdate = Updateable<GameMoveTable>;
+export type GameRow = Selectable<GameTable>;
+export type NewGameRow = Insertable<GameTable>;
+export type GameRowUpdate = Updateable<GameTable>;
+
+export type GameActionRow = Selectable<GameActionTable>;
+export type NewGameActionRow = Insertable<GameActionTable>;
+export type GameActionRowUpdate = Updateable<GameActionTable>;
+
+export type GameMessageRow = Selectable<GameMessageTable>;
+export type NewGameMessageRow = Insertable<GameMessageTable>;
+export type GameMessageRowUpdate = Updateable<GameMessageTable>;
 
 export interface DatabaseSchema {
   game: GameTable;
-  game_move: GameMoveTable;
+  game_action: GameActionTable;
+  game_message: GameMessageTable;
 }

@@ -1,11 +1,13 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { RedisClientPoolType, type RedisClientType } from "redis";
-import { type Result, ResultAsync } from "neverthrow";
+import { RedisClientPoolType, type RedisClientType, RedisJSON } from "redis";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
 import { REDIS_POOL } from "./redis-pool.provider.ts";
 import { withBackoff } from "./redis.utils.ts";
 
 export enum RedisServiceError {
-  RedisError = "Redis Error",
+  Unknown = "Unknown",
+  Conflict = "Conflict",
+  NotFound = "Not Found",
   WatchConflict = "Watch Conflict",
 }
 
@@ -16,6 +18,53 @@ export class RedisService {
   private readonly maxRetries = 5;
 
   constructor(@Inject(REDIS_POOL) private readonly pool: RedisClientPoolType) {}
+
+  getJson(args: { key: string; path?: string }): ResultAsync<RedisJSON, RedisServiceError> {
+    const { key, path } = args;
+
+    return ResultAsync.fromPromise(
+      this.pool.json.get(this.formatKey(key), { path }),
+      this.handleRedisError,
+    );
+  }
+
+  setJson(args: {
+    key: string;
+    value: RedisJSON;
+    path?: string;
+    condition: "NX" | "XX" | undefined;
+  }): ResultAsync<void, RedisServiceError> {
+    const { key, value, path, condition } = args;
+
+    return ResultAsync.fromPromise(
+      this.pool.json.set(key, path ?? "$", value, { condition }),
+      this.handleRedisError,
+    ).andThen((result) => {
+      if (result === "OK") {
+        return ok();
+      }
+
+      if (condition === "NX") {
+        return err(RedisServiceError.Conflict);
+      }
+
+      if (condition === "XX") {
+        return err(RedisServiceError.NotFound);
+      }
+
+      return err(RedisServiceError.Unknown);
+    });
+  }
+
+  deleteJson(args: { key: string; path?: string }): ResultAsync<void, RedisServiceError> {
+    const { key, path } = args;
+
+    return ResultAsync.fromPromise(
+      this.pool.json.del(this.formatKey(key), { path }),
+      this.handleRedisError,
+    ).map(() => undefined);
+  }
+
 
   get(key: string): ResultAsync<string | null, RedisServiceError> {
     return ResultAsync.fromPromise(this.pool.get(this.formatKey(key)), this.handleRedisError);
@@ -54,7 +103,7 @@ export class RedisService {
 
   private readonly handleRedisError = (error: unknown): RedisServiceError => {
     this.logger.error(error);
-    return RedisServiceError.RedisError;
+    return RedisServiceError.Unknown;
   };
 
   private formatKey(key: string): string {

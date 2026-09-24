@@ -5,6 +5,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { DatabaseModule } from "./database/database.module.ts";
 import { AuthModule } from "./auth/auth.module.ts";
 import { RedisModule } from "./redis/redis.module.ts";
+import { GameModule } from "./game/game.module.ts";
 import { SessionModule } from "./session/session.module.ts";
 
 @Module({
@@ -14,6 +15,7 @@ import { SessionModule } from "./session/session.module.ts";
     DatabaseModule,
     AuthModule,
     RedisModule,
+    GameModule,
     SessionModule,
   ],
 })

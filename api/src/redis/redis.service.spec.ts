@@ -109,7 +109,7 @@ describe("RedisService.withWatch", () => {
       if (stage === "unwatch") client.unwatch.mockRejectedValueOnce(failure);
 
       expect(await service.withWatch("session:1", operation)).toEqual(
-        err(RedisServiceError.RedisError),
+        err(RedisServiceError.Unknown),
       );
       expect(pool.execute).toHaveBeenCalledOnce();
       expect(Logger.prototype.error).toHaveBeenCalledWith(failure);
