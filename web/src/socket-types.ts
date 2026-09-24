@@ -1,4 +1,4 @@
-import { TurnAction } from "@lithello/shared/types";
+import { TurnAction, type SessionState } from "@lithello/shared/types";
 
 export type { SessionState } from "@lithello/shared/types";
 
@@ -14,6 +14,10 @@ export interface ClientToServerEvents {
   "game:action": (action: TurnAction) => void;
   "game:resign": () => void;
   "chat:send": (payload: { content: string }) => void;
+  "game:draw-offered": () => void;
+  "game:draw-offer-accepted": () => void;
+  "game:draw-offer-denied": () => void;
+  "game:draw-offer-cancelled": () => void;
   "rematch:requested": () => void;
   "rematch:accepted": () => void;
   "rematch:denied": () => void;
@@ -21,5 +25,5 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
-  "session:state": (state: unknown) => void;
+  "session:state": (state: SessionState) => void;
 }

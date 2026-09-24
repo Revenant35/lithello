@@ -6,6 +6,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "ESNext",
     "types": ["vite/client"],
+    "skipLibCheck": true,
     "allowArbitraryExtensions": true,
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,

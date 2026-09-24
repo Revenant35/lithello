@@ -325,8 +325,15 @@ export function SessionView({ playerId }: SessionViewProps) {
                   onDenyRematch={handleDenyRematch}
                   onRequestRematch={handleRequestRematch}
                 />
-                {/* TODO: Make this component's draw-stuff injected */}
-                <MoveHistory moves={session.history} />
+                <MoveHistory
+                  moves={session.history}
+                  drawStatus="idle"
+                  onResign={handleResign}
+                  onOfferDraw={() => undefined}
+                  onCancelDraw={() => undefined}
+                  onAcceptDraw={() => undefined}
+                  onDenyDraw={() => undefined}
+                />
                 <ChatView
                   messages={session.messages}
                   playerId={playerId}

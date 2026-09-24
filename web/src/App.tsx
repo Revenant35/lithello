@@ -4,6 +4,7 @@ import { authClient } from "./auth-client";
 import { AuthForm } from "./AuthForm";
 import { PageShell } from "./PageShell";
 import { SessionView } from "./SessionView";
+import type { UserID } from "@lithello/shared/types";
 import "./App.css";
 
 export function App() {
@@ -94,7 +95,7 @@ function SessionPage() {
     );
   }
 
-  return <SessionView key={sessionId} playerId={session.user.id} />;
+  return <SessionView key={sessionId} playerId={session.user.id as UserID} />;
 }
 
 function AccountStatus({ message }: { message: string }) {
