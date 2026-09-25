@@ -15,6 +15,9 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "oxlint --type-aware src/ test/",
+    "migrate": "node database/migrate.ts latest",
+    "migrate:up": "node database/migrate.ts up",
+    "migrate:down": "node database/migrate.ts down",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
@@ -31,10 +34,15 @@
     "@nestjs/schedule": "^12.0.2",
     "@nestjs/websockets": "^12.1.0",
     "@socket.io/redis-adapter": "^8.3.0",
+    "dotenv": "^18.0.3",
+    "kysely": "^0.29.6",
+    "kysely-postgres-js": "^5.0.0",
+    "postgres": "^3.4.9",
     "redis": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",
