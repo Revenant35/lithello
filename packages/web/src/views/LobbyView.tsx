@@ -7,7 +7,7 @@ export function LobbyView() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socket: Socket = io(LOBBY_SOCKET_URL);
+    const socket: Socket = io(LOBBY_SOCKET_URL, { transports: ['websocket'] });
 
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
