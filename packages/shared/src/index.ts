@@ -1,6 +1,3 @@
-export interface ApiResponse<T> {
-  data: T;
-  meta?: Record<string, unknown>;
-}
-
-export const APP_NAME = 'lithello';
+export * from './game.ts';
+export * from './lobby.ts';
+export * from './user.ts';
