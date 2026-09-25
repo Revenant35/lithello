@@ -1,0 +1,28 @@
+import { Logger, Provider } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { createClientPool } from "redis";
+
+export const REDIS_POOL = Symbol("REDIS_POOL");
+
+export function provideRedisPool(): Provider {
+  return {
+    provide: REDIS_POOL,
+    inject: [ConfigService],
+    useFactory: async (config: ConfigService) => {
+      const logger = new Logger("Redis Pool");
+      const pool = createClientPool(
+        {
+          socket: {
+            host: config.getOrThrow("REDIS_HOST"),
+            port: Number(config.getOrThrow("REDIS_PORT")),
+          },
+        },
+      );
+
+      pool.on("error", (error) => logger.error(error));
+      await pool.connect();
+
+      return pool;
+    },
+  };
+}
