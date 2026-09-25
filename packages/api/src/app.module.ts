@@ -5,6 +5,7 @@ import { AppController } from './app.controller.ts';
 import { AppService } from './app.service.ts';
 import { LobbyModule } from './lobby/lobby.module.ts';
 import { RedisModule } from './redis/redis.module.ts';
+import { PresenceModule } from './presence/presence.module.ts';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { RedisModule } from './redis/redis.module.ts';
     ScheduleModule.forRoot(),
     LobbyModule,
     RedisModule,
+    PresenceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
