@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { type RedisClientPoolType } from 'redis';
 
 const PROCESS_ID = randomUUID();
-const HEARTBEAT_TTL_SECONDS = 30;
+const HEARTBEAT_TTL_SECONDS = 10;
 const PROCESSES_KEY = 'processes';
 const TOTAL_CLIENTS_KEY = 'total-clients';
 const PROCESS_STATUS_KEY = `${PROCESS_ID}:is-up`;
@@ -56,13 +56,19 @@ export class PresenceService {
         continue;
       }
 
-      const rawCount = await this.redis.get(PROCESS_TOTAL_CLIENTS_KEY);
+      const removedCount = await this.redis.sRem(PROCESSES_KEY, processId);
+      if (removedCount === 0) {
+        // Another instance already claimed cleanup for this process.
+        continue;
+      }
+
+      const deadProcessTotalClientsKey = `${processId}:${TOTAL_CLIENTS_KEY}`;
+      const rawCount = await this.redis.get(deadProcessTotalClientsKey);
       const clientCount = rawCount ? Number(rawCount) : 0;
 
       await this.redis
         .multi()
-        .sRem(PROCESSES_KEY, processId)
-        .del(PROCESS_TOTAL_CLIENTS_KEY)
+        .del(deadProcessTotalClientsKey)
         .decrBy(TOTAL_CLIENTS_KEY, clientCount || 0)
         .exec();
     }
