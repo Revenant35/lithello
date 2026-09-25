@@ -39,6 +39,7 @@
     "dotenv": "^18.0.3",
     "kysely": "^0.29.6",
     "kysely-postgres-js": "^5.0.0",
+    "neverthrow": "^8.2.0",
     "postgres": "^3.4.9",
     "redis": "^6.2.1",
     "reflect-metadata": "^0.2.2",
