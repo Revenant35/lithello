@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { LobbyModule } from './lobby/lobby.module.js';
 
 @Module({
-  imports: [LobbyModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), LobbyModule],
   controllers: [AppController],
   providers: [AppService],
 })
