@@ -7,34 +7,34 @@ export type GameMoveKind = 'move' | 'pass';
 
 export interface GameTable {
   id: Generated<string>;
-  white_id: string;
-  black_id: string;
-  start_clock_ms: number;
+  whiteId: string;
+  blackId: string;
+  startClockMs: number;
   status: GameStatus;
   result: GameResult | null;
-  end_reason: GameEndReason | null;
-  started_at: Generated<Date>;
-  ended_at: Date | null;
+  endReason: GameEndReason | null;
+  startedAt: Generated<Date>;
+  endedAt: Date | null;
 }
 
 export interface GameActionTable {
   id: Generated<string>;
-  game_id: string;
-  user_id: string;
-  action_number: number;
+  gameId: string;
+  userId: string;
+  actionNumber: number;
   kind: GameMoveKind;
-  clock_ms_remaining: number;
+  clockMsRemaining: number;
   row: number | null;
   col: number | null;
-  created_at: Generated<Date>;
+  createdAt: Generated<Date>;
 }
 
 export interface GameMessageTable {
   id: Generated<string>;
-  game_id: string;
-  user_id: string;
+  gameId: string;
+  userId: string;
   content: string;
-  created_at: Generated<Date>;
+  createdAt: Generated<Date>;
 }
 
 export type GameRow = Selectable<GameTable>;
@@ -51,6 +51,6 @@ export type GameMessageRowUpdate = Updateable<GameMessageTable>;
 
 export interface Database {
   game: GameTable;
-  game_action: GameActionTable;
-  game_message: GameMessageTable;
+  gameAction: GameActionTable;
+  gameMessage: GameMessageTable;
 }

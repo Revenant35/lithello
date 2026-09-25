@@ -11,12 +11,12 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     )
     .addColumn("name", "text", (column) => column.notNull())
     .addColumn("email", "text", (column) => column.notNull().unique())
-    .addColumn("emailVerified", "boolean", (column) => column.notNull())
+    .addColumn("email_verified", "boolean", (column) => column.notNull())
     .addColumn("image", "text")
-    .addColumn("createdAt", "timestamptz", (column) =>
+    .addColumn("created_at", "timestamptz", (column) =>
       column.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
-    .addColumn("updatedAt", "timestamptz", (column) =>
+    .addColumn("updated_at", "timestamptz", (column) =>
       column.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
     .execute();
@@ -29,15 +29,15 @@ export async function up(database: Kysely<unknown>): Promise<void> {
         .notNull()
         .primaryKey(),
     )
-    .addColumn("expiresAt", "timestamptz", (column) => column.notNull())
+    .addColumn("expires_at", "timestamptz", (column) => column.notNull())
     .addColumn("token", "text", (column) => column.notNull().unique())
-    .addColumn("createdAt", "timestamptz", (column) =>
+    .addColumn("created_at", "timestamptz", (column) =>
       column.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
-    .addColumn("updatedAt", "timestamptz", (column) => column.notNull())
-    .addColumn("ipAddress", "text")
-    .addColumn("userAgent", "text")
-    .addColumn("userId", "uuid", (column) =>
+    .addColumn("updated_at", "timestamptz", (column) => column.notNull())
+    .addColumn("ip_address", "text")
+    .addColumn("user_agent", "text")
+    .addColumn("user_id", "uuid", (column) =>
       column.notNull().references("user.id").onDelete("cascade"),
     )
     .execute();
@@ -50,22 +50,22 @@ export async function up(database: Kysely<unknown>): Promise<void> {
         .notNull()
         .primaryKey(),
     )
-    .addColumn("accountId", "text", (column) => column.notNull())
-    .addColumn("providerId", "text", (column) => column.notNull())
-    .addColumn("userId", "uuid", (column) =>
+    .addColumn("account_id", "text", (column) => column.notNull())
+    .addColumn("provider_id", "text", (column) => column.notNull())
+    .addColumn("user_id", "uuid", (column) =>
       column.notNull().references("user.id").onDelete("cascade"),
     )
-    .addColumn("accessToken", "text")
-    .addColumn("refreshToken", "text")
-    .addColumn("idToken", "text")
-    .addColumn("accessTokenExpiresAt", "timestamptz")
-    .addColumn("refreshTokenExpiresAt", "timestamptz")
+    .addColumn("access_token", "text")
+    .addColumn("refresh_token", "text")
+    .addColumn("id_token", "text")
+    .addColumn("access_token_expires_at", "timestamptz")
+    .addColumn("refresh_token_expires_at", "timestamptz")
     .addColumn("scope", "text")
     .addColumn("password", "text")
-    .addColumn("createdAt", "timestamptz", (column) =>
+    .addColumn("created_at", "timestamptz", (column) =>
       column.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
-    .addColumn("updatedAt", "timestamptz", (column) => column.notNull())
+    .addColumn("updated_at", "timestamptz", (column) => column.notNull())
     .execute();
 
   await database.schema
@@ -78,18 +78,18 @@ export async function up(database: Kysely<unknown>): Promise<void> {
     )
     .addColumn("identifier", "text", (column) => column.notNull())
     .addColumn("value", "text", (column) => column.notNull())
-    .addColumn("expiresAt", "timestamptz", (column) => column.notNull())
-    .addColumn("createdAt", "timestamptz", (column) =>
+    .addColumn("expires_at", "timestamptz", (column) => column.notNull())
+    .addColumn("created_at", "timestamptz", (column) =>
       column.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
-    .addColumn("updatedAt", "timestamptz", (column) =>
+    .addColumn("updated_at", "timestamptz", (column) =>
       column.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
     .execute();
 
-  await database.schema.createIndex("session_userId_idx").on("session").column("userId").execute();
+  await database.schema.createIndex("session_user_id_idx").on("session").column("user_id").execute();
 
-  await database.schema.createIndex("account_userId_idx").on("account").column("userId").execute();
+  await database.schema.createIndex("account_user_id_idx").on("account").column("user_id").execute();
 
   await database.schema
     .createIndex("verification_identifier_idx")

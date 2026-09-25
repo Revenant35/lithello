@@ -1,33 +1,37 @@
-import { betterAuth } from "better-auth";
-import type { PostgresJSDialect } from "kysely-postgres-js";
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { AuthModule as NestBetterAuthModule } from "@thallesp/nestjs-better-auth";
-import { DatabaseModule } from "../database/database.module.ts";
-import { POSTGRES_DIALECT } from "../database/postgres-dialect.provider.ts";
+import { betterAuth } from 'better-auth';
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthModule as NestBetterAuthModule } from '@thallesp/nestjs-better-auth';
+import { DatabaseModule } from '../database/database.module.ts';
+import { KYSELY } from '../database/kysely.provider.ts';
+import { Kysely } from 'kysely';
+import type { Database } from '../database/database.type.ts';
 
 @Module({
   imports: [
     NestBetterAuthModule.forRootAsync({
       imports: [ConfigModule, DatabaseModule],
-      inject: [ConfigService, POSTGRES_DIALECT],
-      useFactory: (config: ConfigService, dialect: PostgresJSDialect) => ({
+      inject: [ConfigService, KYSELY],
+      useFactory: (config: ConfigService, db: Kysely<Database>) => ({
         auth: betterAuth({
           advanced: {
             database: {
-              generateId: "uuid",
+              generateId: 'uuid',
             },
           },
-          baseURL: config.getOrThrow<string>("BETTER_AUTH_URL"),
-          trustedOrigins: config.getOrThrow<string>("BETTER_AUTH_TRUSTED_ORIGINS").split(","),
+          baseURL: config.getOrThrow<string>('BETTER_AUTH_URL'),
+          trustedOrigins: config
+            .getOrThrow<string>('BETTER_AUTH_TRUSTED_ORIGINS')
+            .split(','),
           database: {
-            dialect,
-            type: "postgres",
+            db,
+            type: 'postgres',
+            casing: 'snake',
           },
           emailAndPassword: {
             enabled: true,
           },
-          secret: config.getOrThrow<string>("BETTER_AUTH_SECRET"),
+          secret: config.getOrThrow<string>('BETTER_AUTH_SECRET'),
         }),
       }),
     }),

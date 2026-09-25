@@ -1,10 +1,10 @@
-import { Provider } from "@nestjs/common";
-import { PostgresJSDialect } from "kysely-postgres-js";
-import { Kysely } from "kysely";
-import { Database } from "./database.type.ts";
-import { POSTGRES_DIALECT } from "./postgres-dialect.provider.ts";
+import { Provider } from '@nestjs/common';
+import { PostgresJSDialect } from 'kysely-postgres-js';
+import { CamelCasePlugin, Kysely } from 'kysely';
+import { Database } from './database.type.ts';
+import { POSTGRES_DIALECT } from './postgres-dialect.provider.ts';
 
-export const KYSELY = Symbol("KYSELY");
+export const KYSELY = Symbol('KYSELY');
 
 export function provideKysely(): Provider {
   return {
@@ -13,6 +13,7 @@ export function provideKysely(): Provider {
     useFactory: (dialect: PostgresJSDialect) =>
       new Kysely<Database>({
         dialect: dialect,
+        plugins: [new CamelCasePlugin()],
       }),
   };
 }
