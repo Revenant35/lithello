@@ -7,6 +7,7 @@ import { LobbyModule } from './lobby/lobby.module.ts';
 import { RedisModule } from './redis/redis.module.ts';
 import { PresenceModule } from './presence/presence.module.ts';
 import { DatabaseModule } from './database/database.module.js';
+import { AuthModule } from './auth/auth.module.ts';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { DatabaseModule } from './database/database.module.js';
     RedisModule,
     PresenceModule,
     DatabaseModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
