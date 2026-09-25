@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
-const LOBBY_SOCKET_URL = 'http://localhost:3000/lobby';
+const LOBBY_SOCKET_URL = `${import.meta.env.VITE_API_URL}/lobby`;
 
 export function LobbyView() {
   const [isConnected, setIsConnected] = useState(false);
