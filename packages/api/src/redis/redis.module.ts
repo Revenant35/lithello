@@ -1,5 +1,5 @@
 import { Inject, Module, OnApplicationShutdown } from '@nestjs/common';
-import { provideRedisPool, REDIS_POOL } from './redis-pool.provider.js';
+import { provideRedisPool, REDIS_POOL } from './redis-pool.provider.ts';
 import type { RedisClientPoolType } from 'redis';
 
 @Module({
