@@ -18,8 +18,10 @@ export function LobbyView() {
   }, []);
 
   return (
-    <div>
-      <p>Lobby socket status: {isConnected ? 'connected' : 'disconnected'}</p>
+    <div className="flex min-h-svh items-center justify-center bg-cream-50 dark:bg-neutral-900">
+      <p className="text-ink dark:text-neutral-100">
+        Lobby socket status: {isConnected ? 'connected' : 'disconnected'}
+      </p>
     </div>
   );
 }
