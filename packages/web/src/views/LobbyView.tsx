@@ -13,6 +13,7 @@ export function LobbyView() {
   const { data: session } = authClient.useSession();
   const [isConnected, setIsConnected] = useState(false);
   const [lobby, setLobby] = useState<Lobby | null>(null);
+  const [connectFailed, setConnectFailed] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   const result = LobbyIDSchema.safeParse(lobbyId);
@@ -33,6 +34,7 @@ export function LobbyView() {
       socket.emit('state');
     });
     socket.on('disconnect', () => setIsConnected(false));
+    socket.on('connect_error', () => setConnectFailed(true));
 
     socket.on('state', (data: unknown) => {
       const parsed = LobbySchema.safeParse(data);
@@ -50,7 +52,7 @@ export function LobbyView() {
     };
   }, [result.success, result.data]);
 
-  if (!result.success) {
+  if (!result.success || connectFailed) {
     return <Navigate to="/home" replace />;
   }
 
