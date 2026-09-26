@@ -31,7 +31,7 @@ const SetReadinessSchema = z.object({
 @UseGuards(AuthGuard)
 @WebSocketGateway({
   namespace: '/lobby',
-  cors: { origin: 'http://localhost:5173' },
+  cors: { origin: ['http://localhost:5173', 'https://lithello.com'] },
 })
 export class LobbyGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
