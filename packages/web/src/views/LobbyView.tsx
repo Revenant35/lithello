@@ -16,15 +16,21 @@ export function LobbyView() {
       return;
     }
 
-    const socket: Socket = io(LOBBY_SOCKET_URL, { transports: ['websocket'] });
+    const socket: Socket = io(LOBBY_SOCKET_URL, {
+      transports: ['websocket'],
+      auth: { lobbyId: result.data },
+    });
 
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
 
+    // TODO: remove this once we're done debugging socket events
+    socket.onAny((event, ...args) => console.log(event, ...args));
+
     return () => {
       socket.disconnect();
     };
-  }, [result.success]);
+  }, [result.success, result.data]);
 
   if (!result.success) {
     return <Navigate to="/home" replace />;

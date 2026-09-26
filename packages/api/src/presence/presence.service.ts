@@ -1,35 +1,71 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { REDIS_POOL } from '../redis/redis-pool.provider.ts';
 import { randomUUID } from 'node:crypto';
 import type { AppRedisPool } from '../redis/app-redis-pool.type.ts';
+import { LobbyID, UserID, UserIDSchema } from '@lithello/shared';
+import { Subject } from 'rxjs';
+import { UserConnectionEvent } from './user-connection-event.type.ts';
+import { LobbyConnectionEvent } from './lobby-connection-event.type.ts';
+import { LobbyEntryCodec } from './lobby-entry.type.ts';
 
 const PROCESS_ID = randomUUID();
-const HEARTBEAT_TTL_SECONDS = 10;
-const PROCESSES_KEY = 'processes';
-const TOTAL_CLIENTS_KEY = 'total-clients';
-const PROCESS_STATUS_KEY = `${PROCESS_ID}:is-up`;
-const PROCESS_TOTAL_CLIENTS_KEY = `${PROCESS_ID}:${TOTAL_CLIENTS_KEY}`;
+
+const GLOBAL_PROCESSES = 'processes';
+const GLOBAL_USER_CONNECTIONS = 'user-connections';
+const GLOBAL_LOBBY_CONNECTIONS = 'lobby-connections';
+
+const PROCESS_HEARTBEAT = livenessKey(PROCESS_ID);
+const PROCESS_USER_CONNECTIONS = userConnectionsKey(PROCESS_ID);
+const PROCESS_LOBBY_CONNECTIONS = lobbyConnectionsKey(PROCESS_ID);
+
+function livenessKey(processId: string): string {
+  return `${processId}:is-up`;
+}
+
+function userConnectionsKey(processId: string): string {
+  return `${processId}:${GLOBAL_USER_CONNECTIONS}`;
+}
+
+function lobbyConnectionsKey(processId: string): string {
+  return `${processId}:${GLOBAL_LOBBY_CONNECTIONS}`;
+}
 
 @Injectable()
 export class PresenceService {
-  constructor(@Inject(REDIS_POOL) private readonly redis: AppRedisPool) {}
+  private readonly heartbeatTtlSeconds: number;
+
+  constructor(
+    @Inject(REDIS_POOL) private readonly redis: AppRedisPool,
+    config: ConfigService,
+  ) {
+    this.heartbeatTtlSeconds = Number(
+      config.get('PRESENCE_HEARTBEAT_TTL_SECONDS', 10),
+    );
+  }
 
   private readonly logger = new Logger(PresenceService.name);
+
+  private readonly _userConnections$ = new Subject<UserConnectionEvent>();
+  public readonly userConnections$ = this._userConnections$.asObservable();
+
+  private readonly _lobbyConnections$ = new Subject<LobbyConnectionEvent>();
+  public readonly lobbyConnections$ = this._lobbyConnections$.asObservable();
 
   async registerProcess(): Promise<void> {
     await this.redis
       .multi()
-      .sAdd(PROCESSES_KEY, PROCESS_ID)
-      .set(PROCESS_STATUS_KEY, '1', {
-        expiration: { type: 'EX', value: HEARTBEAT_TTL_SECONDS },
+      .sAdd(GLOBAL_PROCESSES, PROCESS_ID)
+      .set(PROCESS_HEARTBEAT, '1', {
+        expiration: { type: 'EX', value: this.heartbeatTtlSeconds },
       })
       .exec();
   }
 
   async refreshHeartbeat(): Promise<void> {
     const renewed = await this.redis.expire(
-      PROCESS_STATUS_KEY,
-      HEARTBEAT_TTL_SECONDS,
+      PROCESS_HEARTBEAT,
+      this.heartbeatTtlSeconds,
     );
 
     if (!renewed) {
@@ -39,60 +75,142 @@ export class PresenceService {
   }
 
   async cleanupDeadProcesses(): Promise<void> {
-    const processIds = await this.redis.sMembers(PROCESSES_KEY);
+    const processIds = await this.redis.sMembers(GLOBAL_PROCESSES);
 
     if (processIds.length === 0) {
       return;
     }
 
-    const states = await this.redis.mGet(
-      processIds.map((processId) => `${processId}:is-up`),
+    const states = await this.redis.mGet(processIds.map(livenessKey));
+
+    await Promise.all(
+      processIds
+        .filter((processId, index) => states[index] !== '1')
+        .map((processId) => this.cleanupDeadProcess(processId)),
     );
+  }
 
-    for (const [index, processId] of processIds.entries()) {
-      if (states[index] === '1') {
-        continue;
-      }
+  async isUserConnected(args: { userId: UserID }): Promise<boolean> {
+    const entry = args.userId;
+    const result = await this.redis.hExists(GLOBAL_USER_CONNECTIONS, entry);
+    return result === 1;
+  }
 
-      const removedCount = await this.redis.sRem(PROCESSES_KEY, processId);
-      if (removedCount === 0) {
-        // Another instance already claimed cleanup for this process.
-        continue;
-      }
+  async isUserConnectedToLobby(args: {
+    userId: UserID;
+    lobbyId: LobbyID;
+  }): Promise<boolean> {
+    const entry = LobbyEntryCodec.encode(args);
+    const result = await this.redis.hExists(GLOBAL_LOBBY_CONNECTIONS, entry);
+    return result === 1;
+  }
 
-      const deadProcessTotalClientsKey = `${processId}:${TOTAL_CLIENTS_KEY}`;
-      const rawCount = await this.redis.get(deadProcessTotalClientsKey);
-      const clientCount = rawCount ? Number(rawCount) : 0;
+  async onLobbyConnect(args: {
+    userId: UserID;
+    lobbyId: LobbyID;
+  }): Promise<void> {
+    const { userId, lobbyId } = args;
 
-      await this.redis
-        .multi()
-        .del(deadProcessTotalClientsKey)
-        .decrBy(TOTAL_CLIENTS_KEY, clientCount || 0)
-        .exec();
+    const lobbyEntry = LobbyEntryCodec.encode(args);
+    const [connections, lobbyConnections] = await this.redis
+      .multi()
+      .adjustConnection(
+        GLOBAL_USER_CONNECTIONS,
+        PROCESS_USER_CONNECTIONS,
+        PROCESS_HEARTBEAT,
+        userId,
+        1,
+      )
+      .adjustConnection(
+        GLOBAL_LOBBY_CONNECTIONS,
+        PROCESS_LOBBY_CONNECTIONS,
+        PROCESS_HEARTBEAT,
+        lobbyEntry,
+        1,
+      )
+      .execTyped();
+
+    if (connections === 1) {
+      this._userConnections$.next({ userId, isConnected: true });
+    }
+
+    if (lobbyConnections === 1) {
+      this._lobbyConnections$.next({ userId, lobbyId, isConnected: true });
     }
   }
 
-  async totalCount() {
-    const val = await this.redis.get(TOTAL_CLIENTS_KEY);
-    if (!val) {
-      return 0;
+  async onLobbyDisconnect(args: {
+    userId: UserID;
+    lobbyId: LobbyID;
+  }): Promise<void> {
+    const { userId, lobbyId } = args;
+
+    const lobbyEntry = LobbyEntryCodec.encode(args);
+    const [connections, lobbyConnections] = await this.redis
+      .multi()
+      .adjustConnection(
+        GLOBAL_USER_CONNECTIONS,
+        PROCESS_USER_CONNECTIONS,
+        PROCESS_HEARTBEAT,
+        userId,
+        -1,
+      )
+      .adjustConnection(
+        GLOBAL_LOBBY_CONNECTIONS,
+        PROCESS_LOBBY_CONNECTIONS,
+        PROCESS_HEARTBEAT,
+        lobbyEntry,
+        -1,
+      )
+      .execTyped();
+
+    if (connections === 0) {
+      this._userConnections$.next({ userId, isConnected: false });
     }
-    return Number(val);
+
+    if (lobbyConnections === 0) {
+      this._lobbyConnections$.next({ userId, lobbyId, isConnected: false });
+    }
   }
 
-  async onSocketConnect(): Promise<void> {
-    await this.redis
+  private async cleanupDeadProcess(processId: string) {
+    const [disconnectedUsers, disconnectedLobbies] = await this.redis
       .multi()
-      .incr(PROCESS_TOTAL_CLIENTS_KEY)
-      .incr(TOTAL_CLIENTS_KEY)
-      .exec();
+      .cleanup(GLOBAL_USER_CONNECTIONS, userConnectionsKey(processId))
+      .cleanup(GLOBAL_LOBBY_CONNECTIONS, lobbyConnectionsKey(processId))
+      .sRem(GLOBAL_PROCESSES, processId)
+      .execTyped();
+
+    disconnectedUsers.forEach((entry) => this.onUserCleanup(entry));
+    disconnectedLobbies.forEach((entry) => this.onLobbyCleanup(entry));
   }
 
-  async onSocketDisconnect(): Promise<void> {
-    await this.redis
-      .multi()
-      .decr(PROCESS_TOTAL_CLIENTS_KEY)
-      .decr(TOTAL_CLIENTS_KEY)
-      .exec();
+  private onUserCleanup(entry: string) {
+    const result = UserIDSchema.safeParse(entry);
+    if (!result.success) {
+      this.logger.error(result.error);
+      return;
+    }
+
+    this._userConnections$.next({
+      userId: result.data,
+      isConnected: false,
+    });
+  }
+
+  private onLobbyCleanup(entry: string) {
+    const result = LobbyEntryCodec.safeDecode(entry);
+    if (!result.success) {
+      this.logger.error(result.error);
+      return;
+    }
+
+    const { lobbyId, userId } = result.data;
+
+    this._lobbyConnections$.next({
+      userId,
+      lobbyId,
+      isConnected: false,
+    });
   }
 }

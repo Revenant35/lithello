@@ -7,7 +7,17 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { PresenceService } from '../presence/presence.service.ts';
-import { Logger } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  LobbyIDSchema,
+  UserIDSchema,
+  type UserID,
+  LobbyID,
+  Lobby,
+} from '@lithello/shared';
+import { AuthService } from '@thallesp/nestjs-better-auth';
+import { fromNodeHeaders } from 'better-auth/node';
+import { LobbyService } from './lobby.service.ts';
 
 @WebSocketGateway({
   namespace: '/lobby',
@@ -18,44 +28,119 @@ export class LobbyGateway
 {
   private readonly logger = new Logger(LobbyGateway.name);
 
-  constructor(private readonly presence: PresenceService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly presence: PresenceService,
+    private readonly lobbyService: LobbyService,
+  ) {}
 
-  async afterInit(_server: Server) {}
+  async afterInit(server: Server) {
+    server.use(async (socket, next) => {
+      try {
+        const result = await this.auth.api.getSession({
+          headers: fromNodeHeaders(socket.request.headers),
+        });
 
-  async handleConnection(_client: Socket) {
-    this.logger.debug(`socket connected`);
+        if (!result) {
+          return next(new UnauthorizedException());
+        }
 
-    try {
-      await this.presence.onSocketConnect();
-    } catch (error) {
-      this.logger.error(error);
-      return;
-    }
+        const lobbyResult = LobbyIDSchema.safeParse(
+          socket.handshake.auth['lobbyId'],
+        );
+        if (!lobbyResult.success) {
+          return next(new UnauthorizedException());
+        }
 
-    // TODO: Remove before production-ready!
-    try {
-      const count = await this.presence.totalCount();
-      this.logger.debug(`total connections: ${count}`);
-    } catch (error) {
-      this.logger.error(error);
-      return;
-    }
+        const lobby = await this.lobbyService.getLobby(lobbyResult.data);
+        if (lobby.isErr()) {
+          this.logger.error(lobby.error);
+          return next(new UnauthorizedException());
+        }
+
+        if (lobby.value === null) {
+          return next(new UnauthorizedException());
+        }
+
+        const isHost = lobby.value.host.id === result.user.id;
+        const isExistingGuest = lobby.value.guest?.id === result.user.id;
+
+        if (!isHost && !isExistingGuest) {
+          if (lobby.value.guest !== undefined) {
+            return next(new UnauthorizedException());
+          }
+
+          const addGuestResult = await this.lobbyService.addGuest({
+            lobbyId: lobbyResult.data,
+            guest: {
+              id: result.user.id as UserID,
+              name: result.user.name,
+            },
+          });
+
+          if (addGuestResult.isErr()) {
+            this.logger.error(addGuestResult.error);
+            return next(new UnauthorizedException());
+          }
+        }
+
+        socket.data.user = result.user;
+        socket.data.lobbyId = lobbyResult.data;
+      } catch (error) {
+        this.logger.error(error);
+        return next(new UnauthorizedException());
+      }
+
+      next();
+    });
+
+    this.presence.lobbyConnections$.subscribe((event) => {
+      if (event.isConnected) {
+        server.to(event.lobbyId).emit('user:connected', event.userId);
+      } else {
+        server.to(event.lobbyId).emit('user:disconnected', event.userId);
+      }
+    });
   }
 
-  async handleDisconnect(_client: Socket) {
-    this.logger.debug(`socket disconnected`);
+  async handleConnection(client: Socket) {
+    const userId = UserIDSchema.safeParse(client.data.user.id);
+    const lobbyId = LobbyIDSchema.safeParse(client.data.lobbyId);
+
+    if (!userId.success || !lobbyId.success) {
+      client.disconnect(true);
+      return;
+    }
+
+    await client.join(lobbyId.data);
 
     try {
-      await this.presence.onSocketDisconnect();
+      await this.presence.onLobbyConnect({
+        userId: userId.data,
+        lobbyId: lobbyId.data,
+      });
     } catch (error) {
       this.logger.error(error);
       return;
     }
 
-    // TODO: Remove before production-ready!
+    // TODO: Do we want to send state here? Or maybe leave that to an event?
+  }
+
+  async handleDisconnect(client: Socket) {
+    const userId = UserIDSchema.safeParse(client.data.user.id);
+    const lobbyId = LobbyIDSchema.safeParse(client.data.lobbyId);
+
+    if (!userId.success || !lobbyId.success) {
+      client.disconnect(true);
+      return;
+    }
+
     try {
-      const count = await this.presence.totalCount();
-      this.logger.debug(`total connections: ${count}`);
+      await this.presence.onLobbyDisconnect({
+        userId: userId.data,
+        lobbyId: lobbyId.data,
+      });
     } catch (error) {
       this.logger.error(error);
       return;
