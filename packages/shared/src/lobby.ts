@@ -5,11 +5,18 @@ import { GameIDSchema, GameSettingsSchema } from './game.ts';
 export const LobbyIDSchema = z.uuid().brand('lobby');
 export type LobbyID = z.infer<typeof LobbyIDSchema>;
 
+export const ConnectionStateSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('connected') }),
+  z.object({ status: z.literal('disconnected'), expiresAt: z.coerce.date() }),
+]);
+export type ConnectionState = z.infer<typeof ConnectionStateSchema>;
+
 export const LobbyMemberSchema = UserSchema.pick({
   id: true,
   name: true,
 }).extend({
-  ready: z.boolean(),
+  isReady: z.boolean(),
+  connection: ConnectionStateSchema,
 });
 export type LobbyMember = z.infer<typeof LobbyMemberSchema>;
 

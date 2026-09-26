@@ -31,5 +31,13 @@ export type AppRedisPool = RedisClientPoolType<
         transformReply(reply: string[]): string[];
       }>
     >;
+    promoteGuest: ReturnType<
+      typeof defineScript<{
+        NUMBER_OF_KEYS: number;
+        SCRIPT: string;
+        parseCommand(parser: CommandParser, key: string): void;
+        transformReply(reply: string | null): string | null;
+      }>
+    >;
   }
 >;

@@ -94,6 +94,26 @@ export function provideRedisPool(): Provider {
               return reply;
             },
           }),
+          promoteGuest: defineScript({
+            NUMBER_OF_KEYS: 1,
+            SCRIPT: `
+              local guest = redis.pcall('JSON.GET', KEYS[1], '.guest')
+              if type(guest) == 'table' and guest.err then
+                return false
+              end
+
+              redis.call('JSON.SET', KEYS[1], '.host', guest)
+              redis.call('JSON.DEL', KEYS[1], '.guest')
+
+              return redis.call('JSON.GET', KEYS[1])
+            `,
+            parseCommand(parser: CommandParser, key: string) {
+              parser.pushKey(key);
+            },
+            transformReply(reply: string | null): string | null {
+              return reply;
+            },
+          }),
         },
       });
 

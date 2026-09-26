@@ -21,7 +21,7 @@ export class LobbyController {
     }
 
     return {
-      lobbyId: result.value,
+      lobbyId: result.value.id,
     };
   }
 }
