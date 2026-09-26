@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { REDIS_POOL } from '../redis/redis-pool.provider.ts';
 import { randomUUID } from 'node:crypto';
-import { type RedisClientPoolType } from 'redis';
+import type { AppRedisPool } from '../redis/app-redis-pool.type.ts';
 
 const PROCESS_ID = randomUUID();
 const HEARTBEAT_TTL_SECONDS = 10;
@@ -12,9 +12,7 @@ const PROCESS_TOTAL_CLIENTS_KEY = `${PROCESS_ID}:${TOTAL_CLIENTS_KEY}`;
 
 @Injectable()
 export class PresenceService {
-  constructor(
-    @Inject(REDIS_POOL) private readonly redis: RedisClientPoolType,
-  ) {}
+  constructor(@Inject(REDIS_POOL) private readonly redis: AppRedisPool) {}
 
   private readonly logger = new Logger(PresenceService.name);
 

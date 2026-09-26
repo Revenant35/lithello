@@ -4,6 +4,7 @@ import type { RedisClientPoolType } from 'redis';
 import type { Lobby, LobbyID, User } from '@lithello/shared';
 import { randomUUID } from 'node:crypto';
 import { err, ok, Result } from 'neverthrow';
+import type { AppRedisPool } from '../redis/app-redis-pool.type.ts';
 
 const LOBBY_LIFETIME_MS = 15 * 60 * 1000;
 
@@ -16,9 +17,7 @@ enum LobbyServiceError {
 export class LobbyService {
   private readonly logger = new Logger(LobbyService.name);
 
-  constructor(
-    @Inject(REDIS_POOL) private readonly redis: RedisClientPoolType,
-  ) {}
+  constructor(@Inject(REDIS_POOL) private readonly redis: AppRedisPool) {}
 
   async createLobby(args: {
     host: User;
