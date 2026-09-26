@@ -127,8 +127,8 @@ export class LobbyGateway
     try {
       const { lobbyId, userId } = this.getSocketData(client);
 
-      client.disconnect(true);
       await this.lobby.removeUser({ userId, lobbyId });
+      client.disconnect(true);
     } catch (error) {
       this.logger.error(error);
     }
