@@ -29,10 +29,7 @@ export function LobbyView() {
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => {
-      setIsConnected(true);
-      socket.emit('state');
-    });
+    socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
     socket.on('connect_error', () => setConnectFailed(true));
 
