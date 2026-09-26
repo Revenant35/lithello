@@ -20,12 +20,6 @@ export const LobbyMemberSchema = UserSchema.pick({
 });
 export type LobbyMember = z.infer<typeof LobbyMemberSchema>;
 
-export const CreateLobbySchema = z.object({});
-export type CreateLobby = z.infer<typeof CreateLobbySchema>;
-
-export const UpdateLobbySchema = z.object({});
-export type UpdateLobby = z.infer<typeof UpdateLobbySchema>;
-
 const BaseLobbySchema = z.object({
   id: LobbyIDSchema,
   host: LobbyMemberSchema,
