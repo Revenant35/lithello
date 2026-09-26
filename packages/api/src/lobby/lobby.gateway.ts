@@ -56,6 +56,10 @@ export class LobbyGateway
         next();
       }
     });
+
+    this.lobby.lobbyChanged$.subscribe((lobbyId) => {
+      this.sendStateToLobby({ lobbyId });
+    });
   }
 
   async handleConnection(client: Socket) {
@@ -69,8 +73,6 @@ export class LobbyGateway
     } catch (error) {
       this.logger.error(error);
     }
-
-    // TODO: Do we want to send state here? Or maybe leave that to an event?
   }
 
   async handleDisconnect(client: Socket) {
@@ -126,12 +128,7 @@ export class LobbyGateway
       const { lobbyId, userId } = this.getSocketData(client);
 
       client.disconnect(true);
-      const result = await this.lobby.onUserDisconnect({ userId, lobbyId });
-      if (result.isErr()) {
-        return;
-      }
-
-      await this.sendStateToLobby({ lobbyId });
+      await this.lobby.removeUser({ userId, lobbyId });
     } catch (error) {
       this.logger.error(error);
     }

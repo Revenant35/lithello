@@ -31,7 +31,7 @@ export function LobbyMemberCard({
         <span className="text-sm font-medium text-green-600">Ready</span>
       ) : (
         <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500">
-          Unready
+          Not ready
         </span>
       )}
     </div>

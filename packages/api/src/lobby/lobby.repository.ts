@@ -8,8 +8,9 @@ import {
   type LobbyMember,
   type UserID,
 } from '@lithello/shared';
-import { err, ok, Result } from 'neverthrow';
+import { err, ok, Result, ResultAsync } from 'neverthrow';
 import type { AppRedisPool } from '../redis/app-redis-pool.type.ts';
+import { RedisJSON } from 'redis';
 
 export enum LobbyRepositoryError {
   AlreadyExists = 'Lobby Already Exists',
@@ -130,23 +131,12 @@ export class LobbyRepository {
   }): Promise<Result<void, LobbyRepositoryError>> {
     const { lobbyId, userId, isReady } = args;
 
-    const key = this.getLobbyKey(lobbyId);
-    const path = this.getMemberPath(userId, 'isReady');
-
-    try {
-      const result = await this.redis.json.set(key, path, isReady, {
-        condition: 'XX',
-      });
-
-      if (result !== 'OK') {
-        return err(LobbyRepositoryError.NotFound);
-      }
-    } catch (error) {
-      this.logger.error(error);
-      return err(LobbyRepositoryError.UnknownError);
-    }
-
-    return ok();
+    return await this.modify({
+      lobbyId,
+      data: isReady,
+      path: this.getMemberPath(userId, 'isReady'),
+      condition: 'XX',
+    });
   }
 
   async setConnectivity(args: {
@@ -156,23 +146,12 @@ export class LobbyRepository {
   }): Promise<Result<void, LobbyRepositoryError>> {
     const { lobbyId, userId, connection } = args;
 
-    const key = this.getLobbyKey(lobbyId);
-    const path = this.getMemberPath(userId, 'connection');
-
-    try {
-      const result = await this.redis.json.set(key, path, connection, {
-        condition: 'XX',
-      });
-
-      if (result !== 'OK') {
-        return err(LobbyRepositoryError.NotFound);
-      }
-    } catch (error) {
-      this.logger.error(error);
-      return err(LobbyRepositoryError.UnknownError);
-    }
-
-    return ok();
+    return await this.modify({
+      lobbyId,
+      data: connection,
+      path: this.getMemberPath(userId, 'connection'),
+      condition: 'XX',
+    });
   }
 
   async delete(args: {
@@ -245,6 +224,38 @@ export class LobbyRepository {
     }
 
     return ok(result.data);
+  }
+
+  private async modify(args: {
+    lobbyId: LobbyID;
+    data: RedisJSON;
+    path: string;
+    condition: 'NX' | 'XX' | undefined;
+  }): Promise<Result<void, LobbyRepositoryError>> {
+    const { lobbyId, data, path, condition } = args;
+
+    const key = this.getLobbyKey(lobbyId);
+
+    try {
+      const result = await this.redis.json.set(key, path, data, {
+        condition,
+      });
+
+      if (result !== 'OK') {
+        if (condition === 'NX') {
+          return err(LobbyRepositoryError.AlreadyExists);
+        }
+        if (condition === 'XX') {
+          return err(LobbyRepositoryError.NotFound);
+        }
+        return err(LobbyRepositoryError.UnknownError);
+      }
+
+      return ok();
+    } catch (error) {
+      this.logger.error(error);
+      return err(LobbyRepositoryError.UnknownError);
+    }
   }
 
   private getLobbyKey(lobbyId: LobbyID): string {
