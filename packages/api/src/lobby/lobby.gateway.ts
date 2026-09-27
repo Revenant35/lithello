@@ -22,7 +22,6 @@ import {
 } from '@lithello/shared';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import { LobbyService } from './lobby.service.ts';
-import { LobbyRepository } from './lobby.repository.ts';
 
 type SocketData = { userId: UserID; lobbyId: LobbyID };
 
@@ -45,7 +44,6 @@ export class LobbyGateway
   constructor(
     private readonly presence: PresenceService,
     private readonly lobby: LobbyService,
-    private readonly repository: LobbyRepository,
   ) {}
 
   async afterInit(server: Server) {
@@ -96,17 +94,7 @@ export class LobbyGateway
 
       const { isReady } = SetLobbyReadinessSchema.parse(data);
 
-      const result = await this.repository.setReadiness({
-        lobbyId,
-        userId,
-        isReady,
-      });
-
-      if (result.isErr()) {
-        return;
-      }
-
-      await this.sendStateToLobby({ lobbyId });
+      await this.lobby.setReadiness({ lobbyId, userId, isReady });
     } catch (error) {
       this.logger.error(error);
     }

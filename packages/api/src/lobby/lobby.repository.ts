@@ -2,10 +2,13 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { REDIS_POOL } from '../redis/redis-pool.provider.ts';
 import {
   LobbySchema,
+  type ClosedLobby,
   type ConnectionState,
+  type GameID,
   type Lobby,
   type LobbyID,
   type LobbyMember,
+  type OpenLobby,
   type UserID,
 } from '@lithello/shared';
 import { err, ok, Result, ResultAsync } from 'neverthrow';
@@ -224,6 +227,41 @@ export class LobbyRepository {
     }
 
     return ok(result.data);
+  }
+
+  async close(args: {
+    lobby: OpenLobby;
+    gameId: GameID;
+  }): Promise<Result<ClosedLobby, LobbyRepositoryError>> {
+    const { lobby, gameId } = args;
+
+    if (lobby.guest === undefined) {
+      return err(LobbyRepositoryError.NoGuestToPromote);
+    }
+
+    const closed: ClosedLobby = {
+      ...lobby,
+      guest: lobby.guest,
+      status: 'closed',
+      gameId,
+    };
+
+    const key = this.getLobbyKey(lobby.id);
+
+    try {
+      const result = await this.redis.json.set(key, '$', closed, {
+        condition: 'XX',
+      });
+
+      if (result !== 'OK') {
+        return err(LobbyRepositoryError.NotFound);
+      }
+    } catch (error) {
+      this.logger.error(error);
+      return err(LobbyRepositoryError.UnknownError);
+    }
+
+    return ok(closed);
   }
 
   private async modify(args: {

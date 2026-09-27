@@ -18,13 +18,17 @@ import { randomUUID } from 'node:crypto';
 import { err, ok, Result } from 'neverthrow';
 import { Subject } from 'rxjs';
 import { LobbyRepository, LobbyRepositoryError } from './lobby.repository.ts';
+import { LobbyTasks } from './lobby.tasks.ts';
 import { fromNodeHeaders } from 'better-auth/node';
 import { Socket } from 'socket.io';
 import { AuthService } from '@thallesp/nestjs-better-auth';
 import { PresenceService } from '../presence/presence.service.ts';
+import { GameService } from '../game/game.service.ts';
 
 const LOBBY_LIFETIME_MS = 15 * 60 * 1000;
 const LOBBY_MEMBER_LIFETIME_MS = 15 * 1000;
+const GAME_START_DELAY_MS = 5 * 1000;
+const DEFAULT_GAME_CLOCK_MS = 5 * 60 * 1000;
 
 export enum LobbyServiceError {
   UnknownError = 'Unknown Error',
@@ -42,6 +46,8 @@ export class LobbyService {
     private readonly auth: AuthService,
     private readonly repository: LobbyRepository,
     private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly tasks: LobbyTasks,
+    private readonly game: GameService,
   ) {
     this.presence.lobbyConnections$.subscribe((event) => {
       const { userId, lobbyId, isConnected } = event;
@@ -51,6 +57,10 @@ export class LobbyService {
       } else {
         this.onUserDisconnect({ lobbyId, userId });
       }
+    });
+
+    this.tasks.gameStartDue$.subscribe(({ lobbyId }) => {
+      this.startGame({ lobbyId }).catch((error) => this.logger.error(error));
     });
   }
 
@@ -155,6 +165,43 @@ export class LobbyService {
     return this.repository.getRequired(args);
   }
 
+  async setReadiness(args: {
+    lobbyId: LobbyID;
+    userId: UserID;
+    isReady: boolean;
+  }): Promise<Result<void, LobbyRepositoryError>> {
+    const { lobbyId, userId, isReady } = args;
+
+    const result = await this.repository.setReadiness({
+      lobbyId,
+      userId,
+      isReady,
+    });
+    if (result.isErr()) {
+      return result;
+    }
+
+    if (!isReady) {
+      this.tasks.cancelGameStart({ lobbyId });
+      this._lobbyChanged$.next(lobbyId);
+      return ok();
+    }
+
+    const lobbyResult = await this.repository.getRequired({ lobbyId });
+    if (
+      lobbyResult.isOk() &&
+      lobbyResult.value.status === 'open' &&
+      lobbyResult.value.guest !== undefined &&
+      lobbyResult.value.host.isReady &&
+      lobbyResult.value.guest.isReady
+    ) {
+      this.tasks.scheduleGameStart({ lobbyId, delayMs: GAME_START_DELAY_MS });
+    }
+
+    this._lobbyChanged$.next(lobbyId);
+    return ok();
+  }
+
   async onUserConnect(args: {
     userId: UserID;
     lobbyId: LobbyID;
@@ -207,6 +254,7 @@ export class LobbyService {
     const { userId, lobbyId } = args;
 
     this.cancelExpiryTimer(args);
+    this.tasks.cancelGameStart({ lobbyId });
 
     const result = await this.repository.getRequired({ lobbyId });
     if (result.isErr()) {
@@ -219,6 +267,51 @@ export class LobbyService {
     }
 
     return removed;
+  }
+
+  private async startGame(args: { lobbyId: LobbyID }): Promise<void> {
+    const { lobbyId } = args;
+
+    const lobbyResult = await this.repository.getRequired({ lobbyId });
+    if (lobbyResult.isErr()) {
+      return;
+    }
+
+    const lobby = lobbyResult.value;
+
+    if (
+      lobby.status !== 'open' ||
+      lobby.guest === undefined ||
+      !lobby.host.isReady ||
+      !lobby.guest.isReady
+    ) {
+      // Someone left, unreadied, or the lobby already closed since the
+      // timer was scheduled - abort rather than starting a stale game.
+      return;
+    }
+
+    const gameResult = await this.game.createGame({
+      whiteId: lobby.host.id,
+      blackId: lobby.guest.id,
+      startClockMs: DEFAULT_GAME_CLOCK_MS,
+    });
+
+    if (gameResult.isErr()) {
+      this.logger.error(gameResult.error);
+      return;
+    }
+
+    const closeResult = await this.repository.close({
+      lobby,
+      gameId: gameResult.value.gameId,
+    });
+
+    if (closeResult.isErr()) {
+      this.logger.error(closeResult.error);
+      return;
+    }
+
+    this._lobbyChanged$.next(lobbyId);
   }
 
   private async evictExpiredMember(args: {
