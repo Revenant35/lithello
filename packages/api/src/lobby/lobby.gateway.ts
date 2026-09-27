@@ -8,25 +8,26 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server as SocketIOServer, Socket as SocketIOSocket } from 'socket.io';
 import { PresenceService } from '../presence/presence.service.ts';
 import { Logger, UseGuards } from '@nestjs/common';
 import {
   LobbyIDSchema,
   UserIDSchema,
+  SetLobbyReadinessSchema,
   type UserID,
-  LobbyID,
+  type LobbyID,
+  type ClientToServerLobbyEvents,
+  type ServerToClientLobbyEvents,
 } from '@lithello/shared';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 import { LobbyService } from './lobby.service.ts';
-import { z } from 'zod';
 import { LobbyRepository } from './lobby.repository.ts';
 
 type SocketData = { userId: UserID; lobbyId: LobbyID };
 
-const SetReadinessSchema = z.object({
-  isReady: z.boolean(),
-});
+type Server = SocketIOServer<ClientToServerLobbyEvents, ServerToClientLobbyEvents>;
+type Socket = SocketIOSocket<ClientToServerLobbyEvents, ServerToClientLobbyEvents>;
 
 @UseGuards(AuthGuard)
 @WebSocketGateway({
@@ -93,7 +94,7 @@ export class LobbyGateway
     try {
       const { lobbyId, userId } = this.getSocketData(client);
 
-      const { isReady } = SetReadinessSchema.parse(data);
+      const { isReady } = SetLobbyReadinessSchema.parse(data);
 
       const result = await this.repository.setReadiness({
         lobbyId,

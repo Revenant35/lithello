@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { io, type Socket } from 'socket.io-client';
-import { LobbyIDSchema, LobbySchema, type Lobby } from '@lithello/shared';
+import {
+  LobbyIDSchema,
+  LobbySchema,
+  type Lobby,
+  type ClientToServerLobbyEvents,
+  type ServerToClientLobbyEvents,
+} from '@lithello/shared';
 import { LobbyMemberCard } from '../components/LobbyMemberCard';
 import { authClient } from '../lib/auth-client';
 
@@ -14,7 +20,9 @@ export function LobbyView() {
   const [isConnected, setIsConnected] = useState(false);
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<
+    Socket<ServerToClientLobbyEvents, ClientToServerLobbyEvents> | null
+  >(null);
 
   const result = LobbyIDSchema.safeParse(lobbyId);
 
@@ -23,10 +31,11 @@ export function LobbyView() {
       return;
     }
 
-    const socket: Socket = io(LOBBY_SOCKET_URL, {
-      transports: ['websocket'],
-      auth: { lobbyId: result.data },
-    });
+    const socket: Socket<ServerToClientLobbyEvents, ClientToServerLobbyEvents> =
+      io(LOBBY_SOCKET_URL, {
+        transports: ['websocket'],
+        auth: { lobbyId: result.data },
+      });
     socketRef.current = socket;
 
     socket.on('connect', () => setIsConnected(true));

@@ -45,3 +45,18 @@ export const LobbySchema = z.discriminatedUnion('status', [
   ClosedLobbySchema,
 ]);
 export type Lobby = z.infer<typeof LobbySchema>;
+
+export const SetLobbyReadinessSchema = z.object({
+  isReady: z.boolean(),
+});
+export type SetLobbyReadiness = z.infer<typeof SetLobbyReadinessSchema>;
+
+export interface ClientToServerLobbyEvents {
+  'set-ready': (data: SetLobbyReadiness) => void;
+  state: () => void;
+  leave: () => void;
+}
+
+export interface ServerToClientLobbyEvents {
+  state: (lobby: Lobby) => void;
+}
