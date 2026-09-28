@@ -3,7 +3,6 @@ import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
 import {
   LobbySchema,
   type ClosedLobby,
-  type ConnectionState,
   type GameID,
   type Lobby,
   type LobbyID,
@@ -145,14 +144,14 @@ export class LobbyRepository {
   async setConnectivity(args: {
     lobbyId: LobbyID;
     userId: UserID;
-    connection: ConnectionState;
+    isConnected: boolean;
   }): Promise<Result<void, LobbyRepositoryError>> {
-    const { lobbyId, userId, connection } = args;
+    const { lobbyId, userId, isConnected } = args;
 
     return await this.modify({
       lobbyId,
-      data: connection,
-      path: this.getMemberPath(userId, 'connection'),
+      data: isConnected,
+      path: this.getMemberPath(userId, 'isConnected'),
       condition: 'XX',
     });
   }

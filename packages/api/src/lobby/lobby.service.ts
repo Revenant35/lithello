@@ -142,7 +142,7 @@ export class LobbyService {
           id: args.host.id,
           name: args.host.name,
           isReady: false,
-          connection: { status: 'disconnected' },
+          isConnected: false,
         },
         expiresAt: new Date(Date.now() + LOBBY_LIFETIME_MS),
         status: 'open',
@@ -169,7 +169,7 @@ export class LobbyService {
         id: guest.id,
         name: guest.name,
         isReady: false,
-        connection: { status: 'connected' },
+        isConnected: true,
       },
     });
   }
@@ -226,7 +226,7 @@ export class LobbyService {
     const result = await this.repository.setConnectivity({
       lobbyId,
       userId,
-      connection: { status: 'connected' },
+      isConnected: true,
     });
 
     if (result.isOk()) {
@@ -245,7 +245,7 @@ export class LobbyService {
     const result = await this.repository.setConnectivity({
       lobbyId,
       userId,
-      connection: { status: 'disconnected' },
+      isConnected: false,
     });
 
     if (result.isErr()) {

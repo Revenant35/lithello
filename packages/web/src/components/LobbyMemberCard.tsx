@@ -8,7 +8,7 @@ export function LobbyMemberCard({
   member: LobbyMember;
   isHost: boolean;
 }) {
-  const isConnected = member.connection.status === 'connected';
+  const isConnected = member.isConnected;
 
   return (
     <div className="flex items-center justify-between rounded-lg border border-wood-700 bg-wood-900 px-4 py-3">
