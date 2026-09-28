@@ -53,6 +53,7 @@ export class GameRepository {
         .innerJoin('user as blackUser', 'blackUser.id', 'game.blackId')
         .select([
           'game.board as board',
+          'game.startedAt as startedAt',
           'whiteUser.id as whiteId',
           'whiteUser.name as whiteName',
           'blackUser.id as blackId',
@@ -71,6 +72,7 @@ export class GameRepository {
         row.blackId as UserID,
         row.blackName,
         startClockMs,
+        row.startedAt,
       );
 
       const game: GameState = {
@@ -108,6 +110,7 @@ export class GameRepository {
           'game.status as status',
           'game.result as result',
           'game.endReason as endReason',
+          'game.startedAt as startedAt',
           'game.endedAt as endedAt',
           'whiteUser.id as whiteId',
           'whiteUser.name as whiteName',
@@ -168,31 +171,60 @@ export class GameRepository {
 
       const isActive = row.status === 'active';
 
+      // The active player's countdown began the instant the turn passed to them
+      // (the last recorded action, or game start if nobody has moved yet) - not
+      // "now", or every unrelated state refresh (a chat message, a reconnect)
+      // would push their deadline forward.
+      const turnStartedAt =
+        actionRows.length > 0
+          ? actionRows[actionRows.length - 1]!.createdAt
+          : row.startedAt;
+
+      let whiteClockMs = this.getRemainingClockMs(
+        actionRows,
+        row.whiteId,
+        row.startClockMs,
+      );
+      let blackClockMs = this.getRemainingClockMs(
+        actionRows,
+        row.blackId,
+        row.startClockMs,
+      );
+
+      // The game can end mid-turn (timeout, resignation) with no action ever
+      // recorded for that turn, so the active player's baseline above is still
+      // their remaining time from *before* the turn started. Burn off however
+      // long the turn actually lasted so their final clock reflects reality
+      // instead of jumping back up to what they had at the start of the turn.
+      if (row.status === 'finished' && row.endedAt !== null) {
+        const elapsed = row.endedAt.getTime() - turnStartedAt.getTime();
+
+        if (activePlayer === 'w') {
+          whiteClockMs = Math.max(0, whiteClockMs - elapsed);
+        } else {
+          blackClockMs = Math.max(0, blackClockMs - elapsed);
+        }
+      }
+
       const white =
         isActive && activePlayer === 'w'
           ? this.buildActiveMember(
               row.whiteId as UserID,
               row.whiteName,
-              row.startClockMs,
+              whiteClockMs,
+              turnStartedAt,
             )
-          : this.buildIdleMember(
-              row.whiteId as UserID,
-              row.whiteName,
-              row.startClockMs,
-            );
+          : this.buildIdleMember(row.whiteId as UserID, row.whiteName, whiteClockMs);
 
       const black =
         isActive && activePlayer === 'b'
           ? this.buildActiveMember(
               row.blackId as UserID,
               row.blackName,
-              row.startClockMs,
+              blackClockMs,
+              turnStartedAt,
             )
-          : this.buildIdleMember(
-              row.blackId as UserID,
-              row.blackName,
-              row.startClockMs,
-            );
+          : this.buildIdleMember(row.blackId as UserID, row.blackName, blackClockMs);
 
       if (row.status === 'finished') {
         if (
@@ -381,12 +413,16 @@ export class GameRepository {
   private buildActiveMember(
     id: UserID,
     name: string,
-    startClockMs: number,
+    clockMsRemaining: number,
+    turnStartedAt: Date,
   ): GameMember {
     return {
       id,
       name,
-      clock: { kind: 'active', expiresAt: new Date(Date.now() + startClockMs) },
+      clock: {
+        kind: 'active',
+        expiresAt: new Date(turnStartedAt.getTime() + clockMsRemaining),
+      },
       isConnected: false,
     };
   }
@@ -394,14 +430,33 @@ export class GameRepository {
   private buildIdleMember(
     id: UserID,
     name: string,
-    startClockMs: number,
+    clockMsRemaining: number,
   ): GameMember {
     return {
       id,
       name,
-      clock: { kind: 'idle', clockTimeMilliseconds: startClockMs },
+      clock: { kind: 'idle', clockTimeMilliseconds: clockMsRemaining },
       isConnected: false,
     };
+  }
+
+  private getRemainingClockMs(
+    actionRows: { userId: string; kind: string; clockMsRemaining: number | null }[],
+    userId: string,
+    startClockMs: number,
+  ): number {
+    for (let i = actionRows.length - 1; i >= 0; i--) {
+      const action = actionRows[i];
+      if (
+        action.userId === userId &&
+        action.kind === 'move' &&
+        action.clockMsRemaining !== null
+      ) {
+        return action.clockMsRemaining;
+      }
+    }
+
+    return startClockMs;
   }
 
   private encodeBoard(board: Board): string {
