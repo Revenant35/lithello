@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { GuestOnlyRoute } from './components/GuestOnlyRoute';
 import { RequireAuthRoute } from './components/RequireAuthRoute';
 import { GameView } from './views/GameView';
@@ -10,6 +10,7 @@ import { SignUpView } from './views/SignUpView';
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/home" replace />} />
       <Route element={<RequireAuthRoute />}>
         <Route path="/home" element={<HomeView />} />
         <Route path="/lobby/:lobbyId" element={<LobbyView />} />

@@ -11,6 +11,9 @@ import {
 export const GameIDSchema = z.uuid().brand('game');
 export type GameID = z.infer<typeof GameIDSchema>;
 
+export const GameResultSchema = z.enum(['white_win', 'black_win', 'draw']);
+export type GameResult = z.infer<typeof GameResultSchema>;
+
 export const GameSettingsSchema = z.object({});
 export type GameSettings = z.infer<typeof GameSettingsSchema>;
 
@@ -75,7 +78,7 @@ export const ActiveGameStateSchema = BaseGameStateSchema.extend({
 export type ActiveGameState = z.infer<typeof ActiveGameStateSchema>;
 
 export const FinishedGameStateSchema = BaseGameStateSchema.extend({
-  result: z.enum(['white_win', 'black_win', 'draw']),
+  result: GameResultSchema,
   endReason: z.enum(['normal', 'resignation', 'timeout']),
   endedAt: z.coerce.date(),
 });
@@ -90,6 +93,15 @@ export const GameStateSchema = z.discriminatedUnion('status', [
   }),
 ]);
 export type GameState = z.infer<typeof GameStateSchema>;
+
+export const GameSummarySchema = z.object({
+  id: GameIDSchema,
+  opponent: UserSchema.pick({ id: true, name: true }),
+  viewerColor: PlayerColorSchema,
+  result: GameResultSchema,
+  endedAt: z.coerce.date(),
+});
+export type GameSummary = z.infer<typeof GameSummarySchema>;
 
 export interface ClientToServerGameEvents {
   'get-state': () => void;

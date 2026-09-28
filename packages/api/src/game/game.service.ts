@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   type GameState,
   type GameID,
+  type GameSummary,
   type Board,
   UserID,
   BoardLocation,
@@ -13,6 +14,8 @@ import { Subject } from 'rxjs';
 import { OthelloService } from './othello.service.ts';
 import { GameRepository, GameRepositoryError } from './game.repository.ts';
 import { GameTasks } from './game.tasks.ts';
+
+const MATCH_HISTORY_LIMIT = 10;
 
 export enum GameServiceError {
   NotFound = 'Not Found',
@@ -76,6 +79,22 @@ export class GameService {
     const { gameId } = args;
 
     const result = await this.repository.getGame({ gameId });
+    if (result.isErr()) {
+      return err(this.mapRepositoryError(result.error));
+    }
+
+    return ok(result.value);
+  }
+
+  async getMatchHistory(args: {
+    userId: UserID;
+  }): Promise<Result<GameSummary[], GameServiceError>> {
+    const { userId } = args;
+
+    const result = await this.repository.listFinishedGames({
+      userId,
+      limit: MATCH_HISTORY_LIMIT,
+    });
     if (result.isErr()) {
       return err(this.mapRepositoryError(result.error));
     }

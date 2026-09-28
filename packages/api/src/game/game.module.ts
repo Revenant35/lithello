@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { GameController } from './game.controller.ts';
 import { GameGateway } from './game.gateway.ts';
 import { GameRepository } from './game.repository.ts';
 import { GameService } from './game.service.ts';
@@ -10,6 +11,7 @@ import { OthelloService } from './othello.service.ts';
 
 @Module({
   imports: [PresenceModule, DatabaseModule, AuthModule],
+  controllers: [GameController],
   providers: [
     GameGateway,
     GameRepository,

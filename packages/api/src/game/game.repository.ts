@@ -8,6 +8,7 @@ import {
   GameAction,
   GameMember,
   GameMessage,
+  GameSummary,
   Board,
   BOARD_SIZE,
   PlayerColor,
@@ -227,6 +228,56 @@ export class GameRepository {
         activePlayer,
         possibleMoves: this.othello.getValidMoveLocations(board, activePlayer),
       });
+    } catch (error) {
+      return err(this.handleError(error));
+    }
+  }
+
+  async listFinishedGames(args: {
+    userId: UserID;
+    limit: number;
+  }): Promise<Result<GameSummary[], GameRepositoryError>> {
+    const { userId, limit } = args;
+
+    try {
+      const rows = await this.db
+        .selectFrom('game')
+        .innerJoin('user as whiteUser', 'whiteUser.id', 'game.whiteId')
+        .innerJoin('user as blackUser', 'blackUser.id', 'game.blackId')
+        .select([
+          'game.id as id',
+          'game.result as result',
+          'game.endedAt as endedAt',
+          'whiteUser.id as whiteId',
+          'whiteUser.name as whiteName',
+          'blackUser.id as blackId',
+          'blackUser.name as blackName',
+        ])
+        .where('game.status', '=', 'finished')
+        .where((eb) =>
+          eb.or([eb('game.whiteId', '=', userId), eb('game.blackId', '=', userId)]),
+        )
+        .orderBy('game.endedAt', 'desc')
+        .limit(limit)
+        .execute();
+
+      const summaries: GameSummary[] = rows.map((row) => {
+        const viewerColor: PlayerColor = row.whiteId === userId ? 'w' : 'b';
+        const opponent =
+          viewerColor === 'w'
+            ? { id: row.blackId as UserID, name: row.blackName }
+            : { id: row.whiteId as UserID, name: row.whiteName };
+
+        return {
+          id: row.id as GameID,
+          opponent,
+          viewerColor,
+          result: row.result!,
+          endedAt: row.endedAt!,
+        };
+      });
+
+      return ok(summaries);
     } catch (error) {
       return err(this.handleError(error));
     }
