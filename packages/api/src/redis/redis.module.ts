@@ -1,16 +1,16 @@
 import { Inject, Module, OnApplicationShutdown } from '@nestjs/common';
-import { provideRedisPool, REDIS_POOL } from './redis-pool.provider.ts';
-import type { RedisClientPoolType } from 'redis';
+import { provideRedisClient, REDIS_CLIENT } from './redis-client.provider.ts';
+import { type AppRedisClient } from './app-redis-client.type.ts';
 
 @Module({
   imports: [],
-  providers: [provideRedisPool()],
-  exports: [REDIS_POOL],
+  providers: [provideRedisClient()],
+  exports: [REDIS_CLIENT],
 })
 export class RedisModule implements OnApplicationShutdown {
-  constructor(@Inject(REDIS_POOL) private readonly pool: RedisClientPoolType) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: AppRedisClient) {}
 
   async onApplicationShutdown() {
-    await this.pool.close();
+    await this.redis.close();
   }
 }

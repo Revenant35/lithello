@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { REDIS_POOL } from '../redis/redis-pool.provider.ts';
+import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
 import { randomUUID } from 'node:crypto';
-import type { AppRedisPool } from '../redis/app-redis-pool.type.ts';
+import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
 import { GameID, LobbyID, UserID, UserIDSchema } from '@lithello/shared';
 import { Subject } from 'rxjs';
 import { UserConnectionEvent } from './user-connection-event.type.ts';
@@ -44,7 +44,7 @@ export class PresenceService {
   private readonly heartbeatTtlSeconds: number;
 
   constructor(
-    @Inject(REDIS_POOL) private readonly redis: AppRedisPool,
+    @Inject(REDIS_CLIENT) private readonly redis: AppRedisClient,
     config: ConfigService,
   ) {
     this.heartbeatTtlSeconds = Number(

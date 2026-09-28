@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { REDIS_POOL } from '../redis/redis-pool.provider.ts';
+import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
 import {
   LobbySchema,
   type ClosedLobby,
@@ -12,7 +12,7 @@ import {
   type UserID,
 } from '@lithello/shared';
 import { err, ok, Result, ResultAsync } from 'neverthrow';
-import type { AppRedisPool } from '../redis/app-redis-pool.type.ts';
+import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
 import { RedisJSON } from 'redis';
 
 export enum LobbyRepositoryError {
@@ -26,7 +26,7 @@ export enum LobbyRepositoryError {
 export class LobbyRepository {
   private readonly logger = new Logger(LobbyRepository.name);
 
-  constructor(@Inject(REDIS_POOL) private readonly redis: AppRedisPool) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: AppRedisClient) {}
 
   async create(args: {
     lobby: Lobby;

@@ -1,6 +1,6 @@
-import type { CommandParser, RedisClientPoolType, defineScript } from 'redis';
+import type { CommandParser, defineScript, RedisClientType } from 'redis';
 
-export type AppRedisPool = RedisClientPoolType<
+export type AppRedisClient = RedisClientType<
   {},
   {},
   {
