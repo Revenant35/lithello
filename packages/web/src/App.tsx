@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router';
 import { GuestOnlyRoute } from './components/GuestOnlyRoute';
 import { RequireAuthRoute } from './components/RequireAuthRoute';
+import { GameView } from './views/GameView';
 import { HomeView } from './views/HomeView';
 import { LobbyView } from './views/LobbyView';
 import { SignInView } from './views/SignInView';
@@ -12,6 +13,7 @@ function App() {
       <Route element={<RequireAuthRoute />}>
         <Route path="/home" element={<HomeView />} />
         <Route path="/lobby/:lobbyId" element={<LobbyView />} />
+        <Route path="/game/:gameId" element={<GameView />} />
       </Route>
       <Route element={<GuestOnlyRoute />}>
         <Route path="/signin" element={<SignInView />} />
