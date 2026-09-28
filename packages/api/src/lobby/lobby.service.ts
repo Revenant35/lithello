@@ -6,7 +6,6 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { SchedulerRegistry } from '@nestjs/schedule';
 import {
   type Lobby,
   type LobbyID,
@@ -18,7 +17,6 @@ import { randomUUID } from 'node:crypto';
 import { err, ok, Result } from 'neverthrow';
 import { Subject } from 'rxjs';
 import { LobbyRepository, LobbyRepositoryError } from './lobby.repository.ts';
-import { LobbyTasks } from './lobby.tasks.ts';
 import { fromNodeHeaders } from 'better-auth/node';
 import { Socket } from 'socket.io';
 import { AuthService } from '@thallesp/nestjs-better-auth';
@@ -26,13 +24,16 @@ import { PresenceService } from '../presence/presence.service.ts';
 import { GameService } from '../game/game.service.ts';
 
 const LOBBY_LIFETIME_MS = 15 * 60 * 1000;
-const LOBBY_MEMBER_LIFETIME_MS = 15 * 1000;
-const GAME_START_DELAY_MS = 5 * 1000;
 const DEFAULT_GAME_CLOCK_MS = 5 * 60 * 1000;
 
 export enum LobbyServiceError {
   UnknownError = 'Unknown Error',
 }
+
+type LobbyCreatedEvent = { lobby: Lobby };
+type LobbyReadyEvent = { lobbyId: LobbyID };
+type LobbyUnreadyEvent = { lobbyId: LobbyID };
+type LobbyDestroyedEvent = { lobbyId: LobbyID };
 
 @Injectable()
 export class LobbyService {
@@ -41,12 +42,22 @@ export class LobbyService {
   private readonly _lobbyChanged$ = new Subject<LobbyID>();
   public readonly lobbyChanged$ = this._lobbyChanged$.asObservable();
 
+  private readonly _lobbyCreated$ = new Subject<LobbyCreatedEvent>();
+  public readonly lobbyCreated$ = this._lobbyCreated$.asObservable();
+
+  private readonly _lobbyReady$ = new Subject<LobbyReadyEvent>();
+  public readonly lobbyReady$ = this._lobbyReady$.asObservable();
+
+  private readonly _lobbyUnready$ = new Subject<LobbyUnreadyEvent>();
+  public readonly lobbyUnready$ = this._lobbyUnready$.asObservable();
+
+  private readonly _lobbyDestroyed$ = new Subject<LobbyDestroyedEvent>();
+  public readonly lobbyDestroyed$ = this._lobbyDestroyed$.asObservable();
+
   constructor(
     private readonly presence: PresenceService,
     private readonly auth: AuthService,
     private readonly repository: LobbyRepository,
-    private readonly schedulerRegistry: SchedulerRegistry,
-    private readonly tasks: LobbyTasks,
     private readonly game: GameService,
   ) {
     this.presence.lobbyConnections$.subscribe((event) => {
@@ -57,10 +68,6 @@ export class LobbyService {
       } else {
         this.onUserDisconnect({ lobbyId, userId });
       }
-    });
-
-    this.tasks.gameStartDue$.subscribe(({ lobbyId }) => {
-      this.startGame({ lobbyId }).catch((error) => this.logger.error(error));
     });
   }
 
@@ -123,23 +130,26 @@ export class LobbyService {
   async createLobby(args: {
     host: User;
   }): Promise<Result<Lobby, LobbyRepositoryError>> {
-    return this.repository.create({
+    const result = await this.repository.create({
       lobby: {
         id: randomUUID() as LobbyID,
         host: {
           id: args.host.id,
           name: args.host.name,
           isReady: false,
-          connection: {
-            status: 'disconnected',
-            expiresAt: new Date(Date.now() + LOBBY_MEMBER_LIFETIME_MS),
-          },
+          connection: { status: 'disconnected' },
         },
         expiresAt: new Date(Date.now() + LOBBY_LIFETIME_MS),
         status: 'open',
         gameSettings: {},
       },
     });
+
+    if (result.isOk()) {
+      this._lobbyCreated$.next({ lobby: result.value });
+    }
+
+    return result;
   }
 
   async addGuest(args: {
@@ -181,9 +191,10 @@ export class LobbyService {
       return result;
     }
 
+    this._lobbyChanged$.next(lobbyId);
+
     if (!isReady) {
-      this.tasks.cancelGameStart({ lobbyId });
-      this._lobbyChanged$.next(lobbyId);
+      this._lobbyUnready$.next({ lobbyId });
       return ok();
     }
 
@@ -195,10 +206,9 @@ export class LobbyService {
       lobbyResult.value.host.isReady &&
       lobbyResult.value.guest.isReady
     ) {
-      this.tasks.scheduleGameStart({ lobbyId, delayMs: GAME_START_DELAY_MS });
+      this._lobbyReady$.next({ lobbyId });
     }
 
-    this._lobbyChanged$.next(lobbyId);
     return ok();
   }
 
@@ -207,8 +217,6 @@ export class LobbyService {
     lobbyId: LobbyID;
   }): Promise<Result<void, LobbyRepositoryError>> {
     const { lobbyId, userId } = args;
-
-    this.cancelExpiryTimer(args);
 
     const result = await this.repository.setConnectivity({
       lobbyId,
@@ -229,19 +237,16 @@ export class LobbyService {
   }): Promise<Result<void, LobbyRepositoryError>> {
     const { userId, lobbyId } = args;
 
-    const expiresAt = new Date(Date.now() + LOBBY_MEMBER_LIFETIME_MS);
-
     const result = await this.repository.setConnectivity({
       lobbyId,
       userId,
-      connection: { status: 'disconnected', expiresAt },
+      connection: { status: 'disconnected' },
     });
 
     if (result.isErr()) {
       return result;
     }
 
-    this.scheduleExpiry({ lobbyId, userId, expiresAt });
     this._lobbyChanged$.next(lobbyId);
 
     return result;
@@ -253,8 +258,7 @@ export class LobbyService {
   }): Promise<Result<void, LobbyRepositoryError | LobbyServiceError>> {
     const { userId, lobbyId } = args;
 
-    this.cancelExpiryTimer(args);
-    this.tasks.cancelGameStart({ lobbyId });
+    this._lobbyUnready$.next({ lobbyId });
 
     const result = await this.repository.getRequired({ lobbyId });
     if (result.isErr()) {
@@ -269,7 +273,7 @@ export class LobbyService {
     return removed;
   }
 
-  private async startGame(args: { lobbyId: LobbyID }): Promise<void> {
+  async startGame(args: { lobbyId: LobbyID }): Promise<void> {
     const { lobbyId } = args;
 
     const lobbyResult = await this.repository.getRequired({ lobbyId });
@@ -314,38 +318,17 @@ export class LobbyService {
     this._lobbyChanged$.next(lobbyId);
   }
 
-  private async evictExpiredMember(args: {
-    userId: UserID;
+  async destroy(args: {
     lobbyId: LobbyID;
-  }): Promise<void> {
-    const { userId, lobbyId } = args;
+  }): Promise<Result<void, LobbyRepositoryError>> {
+    const { lobbyId } = args;
 
-    this.cancelExpiryTimer(args);
-
-    const result = await this.repository.getRequired({ lobbyId });
-    if (result.isErr()) {
-      return;
+    const result = await this.repository.delete({ lobbyId });
+    if (result.isOk()) {
+      this._lobbyDestroyed$.next({ lobbyId });
     }
 
-    const lobby = result.value;
-    const member =
-      userId === lobby.host.id
-        ? lobby.host
-        : userId === lobby.guest?.id
-          ? lobby.guest
-          : undefined;
-
-    if (!member || member.connection.status === 'connected') {
-      // Reconnected (or already removed) before the grace period expired.
-      return;
-    }
-
-    const removed = await this.removeMemberFromLobby(lobby, userId);
-    if (removed.isOk()) {
-      this._lobbyChanged$.next(lobbyId);
-    } else {
-      this.logger.error(removed.error);
-    }
+    return result;
   }
 
   private async removeMemberFromLobby(
@@ -360,8 +343,7 @@ export class LobbyService {
         return result.map(() => undefined);
       }
 
-      const result = await this.repository.delete({ lobbyId: lobby.id });
-      return result.map(() => undefined);
+      return this.destroy({ lobbyId: lobby.id });
     }
 
     if (userId === lobby.guest?.id) {
@@ -374,38 +356,5 @@ export class LobbyService {
       userId,
     });
     return err(LobbyServiceError.UnknownError);
-  }
-
-  private scheduleExpiry(args: {
-    lobbyId: LobbyID;
-    userId: UserID;
-    expiresAt: Date;
-  }): void {
-    const { lobbyId, userId, expiresAt } = args;
-
-    this.cancelExpiryTimer({ lobbyId, userId });
-
-    const delayMs = Math.max(0, expiresAt.getTime() - Date.now());
-    const timeout = setTimeout(() => {
-      this.evictExpiredMember({ lobbyId, userId }).catch((error) =>
-        this.logger.error(error),
-      );
-    }, delayMs);
-
-    this.schedulerRegistry.addTimeout(
-      this.getTimeoutName({ lobbyId, userId }),
-      timeout,
-    );
-  }
-
-  private cancelExpiryTimer(args: { lobbyId: LobbyID; userId: UserID }): void {
-    const name = this.getTimeoutName(args);
-    if (this.schedulerRegistry.doesExist('timeout', name)) {
-      this.schedulerRegistry.deleteTimeout(name);
-    }
-  }
-
-  private getTimeoutName(args: { lobbyId: LobbyID; userId: UserID }): string {
-    return `lobby:${args.lobbyId}:member:${args.userId}`;
   }
 }

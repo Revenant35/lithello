@@ -7,7 +7,7 @@ export type LobbyID = z.infer<typeof LobbyIDSchema>;
 
 export const ConnectionStateSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('connected') }),
-  z.object({ status: z.literal('disconnected'), expiresAt: z.coerce.date() }),
+  z.object({ status: z.literal('disconnected') }),
 ]);
 export type ConnectionState = z.infer<typeof ConnectionStateSchema>;
 
