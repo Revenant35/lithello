@@ -5,7 +5,7 @@ import { LobbyService } from './lobby.service.ts';
 import { PresenceService } from '../presence/presence.service.ts';
 
 const LOBBY_MEMBER_LIFETIME_MS = 15 * 1000;
-const GAME_START_DELAY_MS = 5 * 1000;
+const GAME_START_DELAY_MS = 1000;
 
 @Injectable()
 export class LobbyTasks {

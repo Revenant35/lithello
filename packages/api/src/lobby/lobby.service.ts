@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  type GameID,
   type Lobby,
   type LobbyID,
   LobbyIDSchema,
@@ -34,6 +35,7 @@ type LobbyCreatedEvent = { lobby: Lobby };
 type LobbyReadyEvent = { lobbyId: LobbyID };
 type LobbyUnreadyEvent = { lobbyId: LobbyID };
 type LobbyDestroyedEvent = { lobbyId: LobbyID };
+type GameStartedEvent = { lobbyId: LobbyID; gameId: GameID };
 
 @Injectable()
 export class LobbyService {
@@ -53,6 +55,9 @@ export class LobbyService {
 
   private readonly _lobbyDestroyed$ = new Subject<LobbyDestroyedEvent>();
   public readonly lobbyDestroyed$ = this._lobbyDestroyed$.asObservable();
+
+  private readonly _gameStarted$ = new Subject<GameStartedEvent>();
+  public readonly gameStarted$ = this._gameStarted$.asObservable();
 
   constructor(
     private readonly presence: PresenceService,
@@ -316,6 +321,7 @@ export class LobbyService {
     }
 
     this._lobbyChanged$.next(lobbyId);
+    this._gameStarted$.next({ lobbyId, gameId: gameResult.value.gameId });
   }
 
   async destroy(args: {

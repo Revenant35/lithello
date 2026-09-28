@@ -59,6 +59,10 @@ export class LobbyGateway
     this.lobby.lobbyChanged$.subscribe((lobbyId) => {
       this.sendStateToLobby({ lobbyId });
     });
+
+    this.lobby.gameStarted$.subscribe(({ lobbyId, gameId }) => {
+      this.server.to(lobbyId).emit('game-started', { gameId });
+    });
   }
 
   async handleConnection(client: Socket) {

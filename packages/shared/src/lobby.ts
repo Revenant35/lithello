@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { UserSchema } from './user.ts';
-import { GameIDSchema, GameSettingsSchema } from './game.ts';
+import { type GameID, GameIDSchema, GameSettingsSchema } from './game.ts';
 
 export const LobbyIDSchema = z.uuid().brand('lobby');
 export type LobbyID = z.infer<typeof LobbyIDSchema>;
@@ -59,4 +59,5 @@ export interface ClientToServerLobbyEvents {
 
 export interface ServerToClientLobbyEvents {
   state: (lobby: Lobby) => void;
+  'game-started': (data: { gameId: GameID }) => void;
 }

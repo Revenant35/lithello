@@ -49,6 +49,10 @@ export function LobbyView() {
       }
     });
 
+    socket.on('game-started', ({ gameId }) => {
+      navigate(`/game/${gameId}`);
+    });
+
     // TODO: remove this once we're done debugging socket events
     socket.onAny((event, ...args) => console.log(event, ...args));
 
@@ -56,7 +60,7 @@ export function LobbyView() {
       socketRef.current = null;
       socket.disconnect();
     };
-  }, [result.success, result.data]);
+  }, [result.success, result.data, navigate]);
 
   if (!result.success || connectFailed) {
     return <Navigate to="/home" replace />;
