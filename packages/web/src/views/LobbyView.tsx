@@ -94,9 +94,7 @@ export function LobbyView() {
             type="button"
             disabled={!myMember}
             onClick={() =>
-              socketRef.current?.emit('set-ready', {
-                isReady: !(myMember?.isReady ?? false),
-              })
+              socketRef.current?.emit(myMember?.isReady ? 'unready' : 'ready')
             }
             className="rounded-lg bg-brass-400 px-3 py-2 font-medium text-wood-950 transition-colors hover:enabled:bg-brass-300 disabled:cursor-not-allowed disabled:opacity-60"
           >

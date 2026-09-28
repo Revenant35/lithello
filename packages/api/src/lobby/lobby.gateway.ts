@@ -1,6 +1,5 @@
 import {
   ConnectedSocket,
-  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
@@ -14,7 +13,6 @@ import { Logger, UseGuards } from '@nestjs/common';
 import {
   LobbyIDSchema,
   UserIDSchema,
-  SetLobbyReadinessSchema,
   type UserID,
   type LobbyID,
   type ClientToServerLobbyEvents,
@@ -88,17 +86,23 @@ export class LobbyGateway
     }
   }
 
-  @SubscribeMessage('set-ready')
-  async handleSetReady(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: unknown,
-  ): Promise<void> {
+  @SubscribeMessage('ready')
+  async handleReady(@ConnectedSocket() client: Socket): Promise<void> {
     try {
       const { lobbyId, userId } = this.getSocketData(client);
 
-      const { isReady } = SetLobbyReadinessSchema.parse(data);
+      await this.lobby.setReadiness({ lobbyId, userId, isReady: true });
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
 
-      await this.lobby.setReadiness({ lobbyId, userId, isReady });
+  @SubscribeMessage('unready')
+  async handleUnready(@ConnectedSocket() client: Socket): Promise<void> {
+    try {
+      const { lobbyId, userId } = this.getSocketData(client);
+
+      await this.lobby.setReadiness({ lobbyId, userId, isReady: false });
     } catch (error) {
       this.logger.error(error);
     }
