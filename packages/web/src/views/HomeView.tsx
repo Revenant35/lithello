@@ -25,12 +25,12 @@ export function HomeView() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-cream-50 dark:bg-neutral-900">
+    <div className="flex min-h-svh items-center justify-center bg-wood-950">
       <button
         type="button"
         onClick={handleCreateLobby}
         disabled={isCreating}
-        className="flex items-center gap-2 rounded-lg bg-blue-muted px-4 py-2 font-medium text-white transition-colors hover:enabled:bg-blue-muted-dark disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center gap-2 rounded-lg bg-brass-400 px-4 py-2 font-medium text-wood-950 transition-colors hover:enabled:bg-brass-300 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Plus size={18} />
         New Lobby

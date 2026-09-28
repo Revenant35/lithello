@@ -1,19 +1,42 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-cream-50: #faf8f4;
-  --color-cream-100: #f0ece3;
-  --color-cream-200: #e2ddd3;
-  --color-ink: #1f2430;
-  --color-slate: #5a6270;
-  --color-blue-muted: #5b7c99;
-  --color-blue-muted-dark: #4a6a86;
+  --color-wood-950: #1b130d;
+  --color-wood-900: #241a12;
+  --color-wood-800: #33251a;
+  --color-wood-700: #4a3626;
+  --color-wood-600: #6b4f38;
+
+  --color-brass-400: #c9a25c;
+  --color-brass-300: #dfc07f;
+
+  --color-parchment-50: #f4ead9;
+  --color-parchment-300: #cbb99f;
+  --color-parchment-500: #9c8a71;
+
+  --color-ember-600: #b1483a;
+  --color-ember-500: #c65a4a;
+  --color-moss-500: #5b8f5e;
+
+  --color-board-frame: #1a211d;
+  --color-board-felt: #173e31;
+  --color-board-square: #287458;
+  --color-board-square-hover: #318468;
 }
 
 @layer base {
   body {
-    @apply bg-cream-50 text-slate dark:bg-neutral-900 dark:text-neutral-300;
+    @apply bg-wood-950 text-parchment-300;
     margin: 0;
     font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes place-disc {
+    from {
+      opacity: 0;
+      transform: scale(0.65);
+    }
   }
 }

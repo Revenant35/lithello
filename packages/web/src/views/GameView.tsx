@@ -4,16 +4,23 @@ import { io, type Socket } from 'socket.io-client';
 import {
   GameIDSchema,
   GameStateSchema,
+  type BoardLocation,
   type GameState,
   type ClientToServerGameEvents,
   type ServerToClientGameEvents,
 } from '@lithello/shared';
+import { GameBoard } from '../components/GameBoard';
+import { GameScoreView } from '../components/GameScoreView';
+import { MoveHistory } from '../components/MoveHistory';
+import { PostMatchView } from '../components/PostMatchView';
+import { PlayerClockView } from '../components/clocks/PlayerClockView';
+import { authClient } from '../lib/auth-client';
 
 const GAME_SOCKET_URL = `${import.meta.env.VITE_API_URL}/game`;
 
 export function GameView() {
   const { gameId } = useParams<{ gameId: string }>();
-  const [isConnected, setIsConnected] = useState(false);
+  const { data: session } = authClient.useSession();
   const [game, setGame] = useState<GameState | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
   const socketRef = useRef<
@@ -34,8 +41,6 @@ export function GameView() {
       });
     socketRef.current = socket;
 
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
     socket.on('connect_error', () => setConnectFailed(true));
 
     socket.on('state', (data: unknown) => {
@@ -44,9 +49,6 @@ export function GameView() {
         setGame(parsed.data);
       }
     });
-
-    // TODO: remove this once we're done debugging socket events
-    socket.onAny((event, ...args) => console.log(event, ...args));
 
     return () => {
       socketRef.current = null;
@@ -58,26 +60,113 @@ export function GameView() {
     return <Navigate to="/home" replace />;
   }
 
-  return (
-    <div className="flex min-h-svh items-center justify-center bg-cream-100 p-6 dark:bg-neutral-950">
-      <div className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-cream-200 bg-cream-50 p-8 shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
-        <h1 className="text-center text-2xl font-medium text-ink dark:text-neutral-100">
-          Game
-        </h1>
+  const playerColor =
+    game && session
+      ? game.white.id === session.user.id
+        ? 'w'
+        : game.black.id === session.user.id
+          ? 'b'
+          : undefined
+      : undefined;
 
-        {game ? (
-          <p className="text-center text-sm text-slate dark:text-neutral-500">
-            Game state loaded.
-          </p>
-        ) : (
-          <p className="text-center text-sm text-slate dark:text-neutral-500">
+  const isPlayerTurn =
+    game?.status === 'active' &&
+    playerColor !== undefined &&
+    game.activePlayer === playerColor;
+
+  const possibleMoves =
+    game?.status === 'active' && isPlayerTurn ? game.possibleMoves : [];
+
+  function handleMove(location: BoardLocation) {
+    if (game?.status === 'active' && isPlayerTurn) {
+      socketRef.current?.emit('move', location);
+    }
+  }
+
+  function handleResign() {
+    if (game?.status === 'active') {
+      socketRef.current?.emit('resign');
+    }
+  }
+
+  const player = game
+    ? playerColor === 'b'
+      ? game.black
+      : game.white
+    : undefined;
+  const opponent = game
+    ? playerColor === 'b'
+      ? game.white
+      : game.black
+    : undefined;
+
+  return (
+    <div className="min-h-svh bg-wood-950 p-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <header className="flex items-end justify-between border-b border-wood-700 pb-4">
+          <div>
+            <p className="mb-1 font-mono text-xs font-bold tracking-wide text-parchment-500 uppercase">
+              {game?.status === 'active'
+                ? 'Live match'
+                : game?.status === 'finished'
+                  ? 'Final result'
+                  : 'Connecting'}
+            </p>
+            <h1 className="text-3xl font-medium text-parchment-50">Lithello</h1>
+          </div>
+          <div className="grid justify-items-end gap-1 text-right">
+            <span className="font-mono text-[0.62rem] tracking-wide text-parchment-500 uppercase">
+              Game
+            </span>
+            <code className="max-w-[23rem] truncate text-xs text-parchment-300">
+              {result.data}
+            </code>
+          </div>
+        </header>
+
+        {!game ? (
+          <p className="text-center text-sm text-parchment-500">
             Loading game…
           </p>
-        )}
+        ) : (
+          <div className="grid grid-cols-1 items-center justify-center gap-8 lg:grid-cols-[minmax(0,43rem)_minmax(17rem,21rem)]">
+            <div className="flex min-w-0 flex-col gap-2">
+              {opponent && (
+                <div className="flex justify-end">
+                  <PlayerClockView clock={opponent.clock} />
+                </div>
+              )}
+              <GameBoard
+                board={game.board}
+                possibleMoves={possibleMoves}
+                onMove={handleMove}
+              />
+              {player && (
+                <div className="flex justify-end">
+                  <PlayerClockView clock={player.clock} />
+                </div>
+              )}
+            </div>
 
-        <p className="text-center text-xs text-slate dark:text-neutral-500">
-          Socket: {isConnected ? 'connected' : 'disconnected'}
-        </p>
+            <div className="flex flex-col gap-4">
+              <GameScoreView
+                blackScore={game.score.black}
+                whiteScore={game.score.white}
+              />
+              {game.status === 'finished' && (
+                <PostMatchView
+                  result={game.result}
+                  endReason={game.endReason}
+                  viewerColor={playerColor}
+                />
+              )}
+              <MoveHistory
+                moves={game.moveHistory}
+                onResign={game.status === 'active' ? handleResign : undefined}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -17,7 +17,6 @@ export function LobbyView() {
   const { lobbyId } = useParams<{ lobbyId: string }>();
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
-  const [isConnected, setIsConnected] = useState(false);
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
   const socketRef = useRef<
@@ -38,8 +37,6 @@ export function LobbyView() {
       });
     socketRef.current = socket;
 
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
     socket.on('connect_error', () => setConnectFailed(true));
 
     socket.on('state', (data: unknown) => {
@@ -52,9 +49,6 @@ export function LobbyView() {
     socket.on('game-started', ({ gameId }) => {
       navigate(`/game/${gameId}`);
     });
-
-    // TODO: remove this once we're done debugging socket events
-    socket.onAny((event, ...args) => console.log(event, ...args));
 
     return () => {
       socketRef.current = null;
@@ -76,9 +70,9 @@ export function LobbyView() {
       : undefined;
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-cream-100 p-6 dark:bg-neutral-950">
-      <div className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-cream-200 bg-cream-50 p-8 shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
-        <h1 className="text-center text-2xl font-medium text-ink dark:text-neutral-100">
+    <div className="flex min-h-svh items-center justify-center bg-wood-950 p-6">
+      <div className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-wood-700 bg-wood-800 p-8 shadow-lg">
+        <h1 className="text-center text-2xl font-medium text-parchment-50">
           Lobby
         </h1>
 
@@ -90,7 +84,7 @@ export function LobbyView() {
             )}
           </div>
         ) : (
-          <p className="text-center text-sm text-slate dark:text-neutral-500">
+          <p className="text-center text-sm text-parchment-500">
             Loading lobby…
           </p>
         )}
@@ -104,7 +98,7 @@ export function LobbyView() {
                 isReady: !(myMember?.isReady ?? false),
               })
             }
-            className="rounded-lg bg-blue-muted px-3 py-2 font-medium text-white transition-colors hover:enabled:bg-blue-muted-dark disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-brass-400 px-3 py-2 font-medium text-wood-950 transition-colors hover:enabled:bg-brass-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {myMember?.isReady ? 'Unready' : 'Ready'}
           </button>
@@ -114,15 +108,11 @@ export function LobbyView() {
               socketRef.current?.emit('leave');
               navigate('/home');
             }}
-            className="rounded-lg border border-cream-200 px-3 py-2 font-medium text-ink transition-colors hover:bg-cream-100 dark:border-neutral-700 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            className="rounded-lg border border-wood-600 px-3 py-2 font-medium text-parchment-50 transition-colors hover:bg-wood-700"
           >
             Leave
           </button>
         </div>
-
-        <p className="text-center text-xs text-slate dark:text-neutral-500">
-          Socket: {isConnected ? 'connected' : 'disconnected'}
-        </p>
       </div>
     </div>
   );

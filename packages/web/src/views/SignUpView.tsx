@@ -28,15 +28,15 @@ export function SignUpView() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-cream-100 p-6 dark:bg-neutral-950">
+    <div className="flex min-h-svh items-center justify-center bg-wood-950 p-6">
       <form
-        className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-cream-200 bg-cream-50 p-8 shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
+        className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-wood-700 bg-wood-800 p-8 shadow-lg"
         onSubmit={handleSubmit}
       >
-        <h1 className="text-center text-2xl font-medium text-ink dark:text-neutral-100">
+        <h1 className="text-center text-2xl font-medium text-parchment-50">
           Sign up
         </h1>
-        <label className="flex flex-col gap-1.5 text-sm text-slate dark:text-neutral-400">
+        <label className="flex flex-col gap-1.5 text-sm text-parchment-300">
           Name
           <input
             type="text"
@@ -44,10 +44,10 @@ export function SignUpView() {
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
-            className="rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 text-ink outline-none focus-visible:border-blue-muted focus-visible:ring-2 focus-visible:ring-blue-muted dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="rounded-lg border border-wood-600 bg-wood-900 px-3 py-2 text-parchment-50 outline-none focus-visible:border-brass-400 focus-visible:ring-2 focus-visible:ring-brass-400"
           />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm text-slate dark:text-neutral-400">
+        <label className="flex flex-col gap-1.5 text-sm text-parchment-300">
           Email
           <input
             type="email"
@@ -55,10 +55,10 @@ export function SignUpView() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            className="rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 text-ink outline-none focus-visible:border-blue-muted focus-visible:ring-2 focus-visible:ring-blue-muted dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="rounded-lg border border-wood-600 bg-wood-900 px-3 py-2 text-parchment-50 outline-none focus-visible:border-brass-400 focus-visible:ring-2 focus-visible:ring-brass-400"
           />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm text-slate dark:text-neutral-400">
+        <label className="flex flex-col gap-1.5 text-sm text-parchment-300">
           Password
           <input
             type="password"
@@ -67,20 +67,20 @@ export function SignUpView() {
             onChange={(event) => setPassword(event.target.value)}
             required
             minLength={8}
-            className="rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 text-ink outline-none focus-visible:border-blue-muted focus-visible:ring-2 focus-visible:ring-blue-muted dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="rounded-lg border border-wood-600 bg-wood-900 px-3 py-2 text-parchment-50 outline-none focus-visible:border-brass-400 focus-visible:ring-2 focus-visible:ring-brass-400"
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-ember-500">{error}</p>}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-lg bg-blue-muted px-3 py-2 font-medium text-white transition-colors hover:enabled:bg-blue-muted-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-brass-400 px-3 py-2 font-medium text-wood-950 transition-colors hover:enabled:bg-brass-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Signing up…' : 'Sign up'}
         </button>
-        <p className="text-center text-sm text-slate dark:text-neutral-400">
+        <p className="text-center text-sm text-parchment-300">
           Already have an account?{' '}
-          <Link to="/signin" className="font-medium text-blue-muted hover:underline">
+          <Link to="/signin" className="font-medium text-brass-300 hover:underline">
             Sign in
           </Link>
         </p>

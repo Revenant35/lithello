@@ -113,6 +113,8 @@ export class GameGateway
 
       await client.join(gameId);
       await this.presence.onGameConnect({ userId: user.id, gameId });
+
+      await this.sendStateToUser({ gameId, client });
     } catch (error) {
       this.logger.error(error);
     }
@@ -353,6 +355,20 @@ export class GameGateway
     }
 
     this.sendState({ gameId, state: result.value });
+  }
+
+  private async sendStateToUser(args: {
+    gameId: GameID;
+    client: Socket;
+  }): Promise<void> {
+    const { gameId, client } = args;
+
+    const result = await this.game.getState({ gameId });
+    if (result.isErr()) {
+      return;
+    }
+
+    client.emit('state', result.value);
   }
 
   private getSocketData(client: Socket): SocketData {

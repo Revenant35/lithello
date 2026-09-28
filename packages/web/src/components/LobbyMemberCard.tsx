@@ -11,28 +11,20 @@ export function LobbyMemberCard({
   const isConnected = member.connection.status === 'connected';
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-cream-200 bg-cream-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+    <div className="flex items-center justify-between rounded-lg border border-wood-700 bg-wood-900 px-4 py-3">
       <div className="flex items-center gap-2">
-        {isHost && <Crown size={18} className="text-blue-muted" />}
-        <span
-          className={
-            isConnected
-              ? 'text-ink dark:text-neutral-100'
-              : 'text-neutral-400 dark:text-neutral-600'
-          }
-        >
+        {isHost && <Crown size={18} className="text-brass-400" />}
+        <span className={isConnected ? 'text-parchment-50' : 'text-parchment-500'}>
           {member.name}
         </span>
       </div>
 
       {!isConnected ? (
-        <span className="text-sm font-medium text-red-600">DISCONNECTED</span>
+        <span className="text-sm font-medium text-ember-500">DISCONNECTED</span>
       ) : member.isReady ? (
-        <span className="text-sm font-medium text-green-600">Ready</span>
+        <span className="text-sm font-medium text-moss-500">Ready</span>
       ) : (
-        <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500">
-          Not ready
-        </span>
+        <span className="text-sm font-medium text-parchment-500">Not ready</span>
       )}
     </div>
   );
