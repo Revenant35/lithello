@@ -1,9 +1,13 @@
+import type { PlayerColor } from '@lithello/shared';
+
 export function GameScoreView({
   blackScore,
   whiteScore,
+  viewerColor,
 }: {
   blackScore: number;
   whiteScore: number;
+  viewerColor?: PlayerColor;
 }) {
   return (
     <section
@@ -22,6 +26,9 @@ export function GameScoreView({
               className="inline-block aspect-square w-3.5 rounded-full border border-wood-600 bg-wood-950"
             />
             Black
+            {viewerColor === 'b' && (
+              <span className="text-parchment-600">(you)</span>
+            )}
           </dt>
           <dd className="font-mono text-lg text-parchment-50">{blackScore}</dd>
         </div>
@@ -32,6 +39,9 @@ export function GameScoreView({
               className="inline-block aspect-square w-3.5 rounded-full bg-parchment-50"
             />
             White
+            {viewerColor === 'w' && (
+              <span className="text-parchment-600">(you)</span>
+            )}
           </dt>
           <dd className="font-mono text-lg text-parchment-50">{whiteScore}</dd>
         </div>

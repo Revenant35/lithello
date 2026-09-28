@@ -152,6 +152,7 @@ export function GameView() {
               <GameScoreView
                 blackScore={game.score.black}
                 whiteScore={game.score.white}
+                viewerColor={playerColor}
               />
               {game.status === 'finished' && (
                 <PostMatchView
