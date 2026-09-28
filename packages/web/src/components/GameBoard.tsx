@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { BOARD_SIZE, type Board, type BoardLocation } from '@lithello/shared';
+import type { Board, BoardLocation } from '@lithello/shared';
 import { FILES, RANKS } from '../lib/board';
 
 function locationMatches(a: BoardLocation, b: BoardLocation) {
@@ -20,12 +20,12 @@ export function GameBoard({
       aria-label="Othello board"
       className="m-0 grid aspect-square w-full grid-cols-8 overflow-hidden rounded-md border-[clamp(0.35rem,1.2vw,0.75rem)] border-board-frame bg-board-felt p-0 shadow-[0_1.5rem_4rem_rgba(0,0,0,0.32),inset_0_0_0_1px_rgba(255,255,255,0.08)]"
     >
-      {Array.from({ length: BOARD_SIZE }, (_, rowIndex) => (
-        <Fragment key={rowIndex}>
-          {Array.from({ length: BOARD_SIZE }, (_, colIndex) => {
+      {RANKS.map((rank, rowIndex) => (
+        <Fragment key={rank}>
+          {FILES.map((file, colIndex) => {
             const location: BoardLocation = { row: rowIndex, col: colIndex };
-            const coordinate = `${FILES[colIndex]}${RANKS[rowIndex]}`;
-            const color = board[rowIndex][colIndex];
+            const coordinate = `${file}${rank}`;
+            const color = board[rowIndex]?.[colIndex] ?? null;
             const isPossibleMove =
               color === null &&
               possibleMoves.some((m) => locationMatches(m, location));
@@ -41,12 +41,12 @@ export function GameBoard({
               >
                 {colIndex === 0 && (
                   <span className="absolute top-1 left-1 text-[clamp(0.45rem,1.4vw,0.66rem)] font-bold text-white/60">
-                    {RANKS[rowIndex]}
+                    {rank}
                   </span>
                 )}
                 {rowIndex === 0 && (
                   <span className="absolute right-1 bottom-1 text-[clamp(0.45rem,1.4vw,0.66rem)] font-bold text-white/60">
-                    {FILES[colIndex].toUpperCase()}
+                    {file.toUpperCase()}
                   </span>
                 )}
                 {color && (
