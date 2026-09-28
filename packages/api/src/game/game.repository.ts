@@ -16,8 +16,12 @@ import {
   GameMessageContent,
 } from '@lithello/shared';
 import { KYSELY } from '../database/kysely.provider.ts';
-import { OthelloService } from './othello.service.ts';
 import { err, ok, Result } from 'neverthrow';
+import {
+  getGameScore,
+  getOpponentColor,
+  getValidMoveLocations,
+} from './game.utils.ts';
 
 export enum GameRepositoryError {
   NotFound = 'Not Found',
@@ -30,7 +34,6 @@ export class GameRepository {
 
   constructor(
     @Inject(KYSELY) private readonly db: Kysely<Database>,
-    private readonly othello: OthelloService,
   ) {}
 
   async createGame(args: {
@@ -79,12 +82,12 @@ export class GameRepository {
         white,
         black,
         board,
-        score: this.othello.getGameScore(board),
+        score: getGameScore(board),
         messages: [],
         moveHistory: [],
         status: 'active',
         activePlayer: 'b',
-        possibleMoves: this.othello.getValidMoveLocations(board, 'b'),
+        possibleMoves: getValidMoveLocations(board, 'b'),
       };
 
       return ok({ gameId: id, state: game });
@@ -166,7 +169,7 @@ export class GameRepository {
 
       let activePlayer: PlayerColor = 'b';
       for (let i = 0; i < actionRows.length; i++) {
-        activePlayer = this.othello.getOpponentColor(activePlayer);
+        activePlayer = getOpponentColor(activePlayer);
       }
 
       const isActive = row.status === 'active';
@@ -239,7 +242,7 @@ export class GameRepository {
           white,
           black,
           board,
-          score: this.othello.getGameScore(board),
+          score: getGameScore(board),
           messages,
           moveHistory,
           status: 'finished',
@@ -253,12 +256,12 @@ export class GameRepository {
         white,
         black,
         board,
-        score: this.othello.getGameScore(board),
+        score: getGameScore(board),
         messages,
         moveHistory,
         status: 'active',
         activePlayer,
-        possibleMoves: this.othello.getValidMoveLocations(board, activePlayer),
+        possibleMoves: getValidMoveLocations(board, activePlayer),
       });
     } catch (error) {
       return err(this.handleError(error));

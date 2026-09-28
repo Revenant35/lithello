@@ -11,9 +11,13 @@ import {
 } from '@lithello/shared';
 import { err, ok, Result } from 'neverthrow';
 import { Subject } from 'rxjs';
-import { OthelloService } from './othello.service.ts';
 import { GameRepository, GameRepositoryError } from './game.repository.ts';
 import { GameTasks } from './game.tasks.ts';
+import {
+  getGameScore,
+  getOpponentColor,
+  getValidMoveLocations, performMove,
+} from './game.utils.ts';
 
 const MATCH_HISTORY_LIMIT = 10;
 
@@ -32,7 +36,6 @@ export class GameService {
   public readonly gameChanged$ = this._gameChanged$.asObservable();
 
   constructor(
-    private readonly othello: OthelloService,
     private readonly repository: GameRepository,
     private readonly tasks: GameTasks,
   ) {
@@ -128,7 +131,7 @@ export class GameService {
       return err(GameServiceError.IllegalMove);
     }
 
-    const moveResult = this.othello.performMove(state.board, {
+    const moveResult = performMove(state.board, {
       location,
       playerColor,
     });
@@ -137,7 +140,7 @@ export class GameService {
     }
 
     const board = moveResult.value;
-    const opponentColor = this.othello.getOpponentColor(playerColor);
+    const opponentColor = getOpponentColor(playerColor);
     const clockMsRemaining = this.getClockMsRemaining(state, playerColor);
 
     this.tasks.cancelClock({ gameId });
@@ -151,13 +154,13 @@ export class GameService {
       return err(this.mapRepositoryError(recordResult.error));
     }
 
-    const opponentMoves = this.othello.getValidMoveLocations(
+    const opponentMoves = getValidMoveLocations(
       board,
       opponentColor,
     );
 
     if (opponentMoves.length === 0) {
-      const ownMoves = this.othello.getValidMoveLocations(board, playerColor);
+      const ownMoves = getValidMoveLocations(board, playerColor);
 
       if (ownMoves.length === 0) {
         const completeResult = await this.completeGame(gameId, board);
@@ -270,7 +273,7 @@ export class GameService {
     gameId: GameID,
     board: Board,
   ): Promise<Result<void, GameServiceError>> {
-    const score = this.othello.getGameScore(board);
+    const score = getGameScore(board);
     const result =
       score.white > score.black
         ? 'white_win'
