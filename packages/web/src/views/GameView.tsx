@@ -25,6 +25,7 @@ import { MoveHistory } from '../components/MoveHistory';
 import { PostMatchView } from '../components/PostMatchView';
 import { PlayerClockView } from '../components/clocks/PlayerClockView';
 import { authClient } from '../lib/auth-client';
+import { useCountdown } from '../lib/use-countdown';
 
 const GAME_SOCKET_URL = `${import.meta.env.VITE_API_URL}/game`;
 
@@ -41,6 +42,17 @@ export function GameView() {
   > | null>(null);
 
   const result = GameIDSchema.safeParse(gameId);
+
+  const game = session?.game;
+  const isFinished = game?.endedAt != null;
+
+  // Games are created with a short grace period before the clocks start, so
+  // the board stays locked until it passes. Called before the early returns
+  // below so the hook order never changes between renders.
+  const secondsUntilStart = useCountdown(
+    !isFinished && game?.startedAt ? game.startedAt : null,
+  );
+  const hasStarted = game?.startedAt != null && secondsUntilStart === 0;
 
   useEffect(() => {
     if (!result.success) {
@@ -75,9 +87,6 @@ export function GameView() {
     return <Navigate to="/home" replace />;
   }
 
-  const game = session?.game;
-  const isFinished = game?.endedAt != null;
-
   const viewerColor: PlayerColor | undefined =
     game && authSession
       ? game.white.id === authSession.user.id
@@ -94,7 +103,7 @@ export function GameView() {
   const colorToMove =
     !isFinished && lastMove ? getColorForPly(lastMove.ply + 1) : undefined;
   const isViewerTurn =
-    viewerColor !== undefined && colorToMove === viewerColor;
+    hasStarted && viewerColor !== undefined && colorToMove === viewerColor;
 
   const legalMoves =
     board && isViewerTurn && viewerColor
@@ -109,7 +118,10 @@ export function GameView() {
   function clockProps(color: PlayerColor) {
     return {
       remainingMs: color === 'w' ? (clocks?.white ?? 0) : (clocks?.black ?? 0),
-      expiresAt: deadline?.color === color ? deadline.expiresAt : undefined,
+      // Nobody is counting down until the game has actually started, so both
+      // clocks sit idle on their full time rather than showing more than it.
+      expiresAt:
+        hasStarted && deadline?.color === color ? deadline.expiresAt : undefined,
     };
   }
 
@@ -220,7 +232,13 @@ export function GameView() {
             </div>
 
             <div className="game-sidebar">
-              {!isFinished && (
+              {!isFinished && !hasStarted && (
+                <div role="status" className="turn-status">
+                  Starting in {secondsUntilStart}…
+                  <p>Take a breath. The clocks are not running yet.</p>
+                </div>
+              )}
+              {!isFinished && hasStarted && (
                 <div
                   role="status"
                   className={`turn-status ${isViewerTurn ? 'is-your-turn' : ''}`}
@@ -252,7 +270,9 @@ export function GameView() {
               <MoveHistory
                 moves={session.moves}
                 onResign={
-                  !isFinished && viewerColor ? handleResign : undefined
+                  !isFinished && hasStarted && viewerColor
+                    ? handleResign
+                    : undefined
                 }
               />
             </div>

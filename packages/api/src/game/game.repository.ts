@@ -142,6 +142,7 @@ export class GameRepository {
     black: Player;
     timeControlId: GameTimeControl['id'];
     isRated: boolean;
+    createdAt?: Date;
     startedAt?: Date;
   }): Promise<GameID> {
     const { white, black, ...rest } = args;

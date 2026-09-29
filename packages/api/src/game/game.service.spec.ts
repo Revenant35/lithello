@@ -257,7 +257,8 @@ describe('GameService', () => {
         black: BLACK,
         timeControlId: TIME_CONTROL_ID,
         isRated: true,
-        startedAt: NOW,
+        createdAt: NOW,
+        startedAt: new Date(NOW.getTime() + 5_000),
       });
     });
 
@@ -276,8 +277,41 @@ describe('GameService', () => {
         square: null,
         whiteTimeMs: 300_000,
         blackTimeMs: 300_000,
-        playedAt: NOW,
+        playedAt: new Date(NOW.getTime() + 5_000),
       });
+    });
+
+    /**
+     * game_started_after_created requires started_at >= created_at. Letting the
+     * database default created_at to its own now() made it land microseconds
+     * after an app-supplied started_at and the insert was rejected.
+     */
+    it('takes both timestamps from one clock, with the start after creation', async () => {
+      await service.createGame({
+        whiteUserId: WHITE_ID,
+        blackUserId: BLACK_ID,
+        timeControlId: TIME_CONTROL_ID,
+        isRated: true,
+      });
+
+      const { createdAt, startedAt } = games.createGame.mock.calls[0]![0];
+
+      expect(startedAt.getTime()).toBeGreaterThan(createdAt.getTime());
+    });
+
+    it('starts the clocks from the delayed start, not from creation', async () => {
+      await service.createGame({
+        whiteUserId: WHITE_ID,
+        blackUserId: BLACK_ID,
+        timeControlId: TIME_CONTROL_ID,
+        isRated: true,
+      });
+
+      const { startedAt } = games.createGame.mock.calls[0]![0];
+      const { playedAt } = games.insertMove.mock.calls[0]![0];
+
+      // Ply 0 is the clock origin, so the grace period must not burn time.
+      expect(playedAt).toEqual(startedAt);
     });
   });
 

@@ -50,6 +50,12 @@ const CLAIM_LEASE_MS = 10_000;
 
 const CLAIM_BATCH_SIZE = 100;
 
+/**
+ * A grace period between creating a game and its clocks starting, so both
+ * players have a moment to see the board before either is on the clock.
+ */
+const GAME_START_DELAY_MS = 5_000;
+
 @Injectable()
 export class GameService {
   private readonly logger = new Logger(GameService.name);
@@ -116,13 +122,18 @@ export class GameService {
       this.getTimeControl(timeControlId)
     ]);
 
-    const startedAt = new Date();
+    // Both timestamps come from one clock. Letting the database default
+    // `createdAt` to its own `now()` puts it microseconds *after* an app-supplied
+    // `startedAt`, which violates game_started_after_created.
+    const createdAt = new Date();
+    const startedAt = new Date(createdAt.getTime() + GAME_START_DELAY_MS);
 
     const gameId = await this.games.createGame({
       white,
       black,
       timeControlId,
       isRated,
+      createdAt,
       startedAt,
     });
 
