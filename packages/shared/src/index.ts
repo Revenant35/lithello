@@ -8,4 +8,5 @@ export * from './game-socket.ts';
 export * from './game-time-control.ts';
 export * from './identifiers.ts';
 export * from './lobby.ts';
+export * from './player.ts';
 export * from './user.ts';

@@ -10,6 +10,7 @@ import type {
   GameMove,
   GameResult,
   GameTimeControl,
+  Player,
   Square,
   UserID,
 } from '@lithello/shared';
@@ -104,18 +105,25 @@ export class GameRepository {
     return rows.map(toGameTimeControl);
   }
 
+  /** Each side's `ratingBefore` is snapshotted from the player's current rating. */
   async createGame(args: {
-    whiteUserId: UserID;
-    blackUserId: UserID;
+    white: Player;
+    black: Player;
     timeControlId: GameTimeControl['id'];
-    whiteRatingBefore: number;
-    blackRatingBefore: number;
     isRated: boolean;
     startedAt?: Date;
   }): Promise<GameID> {
+    const { white, black, ...rest } = args;
+
     const [row] = await this.db
       .insert(game)
-      .values(args)
+      .values({
+        ...rest,
+        whiteUserId: white.id,
+        blackUserId: black.id,
+        whiteRatingBefore: white.rating,
+        blackRatingBefore: black.rating,
+      })
       .returning({ id: game.id });
 
     if (row === undefined) {
