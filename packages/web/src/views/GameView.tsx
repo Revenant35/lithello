@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
 import {
   type ClientToServerGameEvents,
+  type Game,
   GameIDSchema,
   type GameSession,
   GameSessionSchema,
@@ -12,6 +13,7 @@ import {
   getBoardScore,
   getCurrentBoard,
   getDisplayClocks,
+  getRatingDelta,
   getLastMove,
   getLegalMoves,
   getTurnDeadline,
@@ -28,6 +30,7 @@ import { MoveHistory } from '../components/MoveHistory';
 import { PostMatchView } from '../components/PostMatchView';
 import { PlayerClockView } from '../components/clocks/PlayerClockView';
 import { authClient } from '../lib/auth-client';
+import { formatRatingDelta } from '../lib/rating';
 import { useCountdown } from '../lib/use-countdown';
 
 const GAME_SOCKET_URL = `${import.meta.env.VITE_API_URL}/game`;
@@ -166,6 +169,20 @@ export function GameView() {
   const bottomColor: PlayerColor = viewerColor === 'b' ? 'b' : 'w';
   const topColor: PlayerColor = bottomColor === 'b' ? 'w' : 'b';
 
+  /**
+   * While the game runs a seat shows the rating it started with. Once a rated
+   * game is settled it shows where that rating landed, with the change.
+   */
+  function formatSeatRating(seat: Game['white']): string {
+    const delta = getRatingDelta(seat);
+
+    if (game === undefined || !game.isRated || delta === null) {
+      return String(seat.ratingBefore);
+    }
+
+    return `${seat.ratingAfter} (${formatRatingDelta(delta)})`;
+  }
+
   const topConnection = session ? getConnectionState(session, topColor) : null;
   const bottomConnection = session
     ? getConnectionState(session, bottomColor)
@@ -216,7 +233,7 @@ export function GameView() {
                       <strong>{opponent.name}</strong>
                       <small>
                         {topColor === 'b' ? 'Black' : 'White'} ·{' '}
-                        {opponent.ratingBefore}
+                        {formatSeatRating(opponent)}
                       </small>
                       {topConnection && !topConnection.isConnected && (
                         <AbandonNotice abandonsAt={topConnection.abandonsAt} />
@@ -245,7 +262,7 @@ export function GameView() {
                       </strong>
                       <small>
                         {bottomColor === 'b' ? 'Black' : 'White'} ·{' '}
-                        {viewer.ratingBefore}
+                        {formatSeatRating(viewer)}
                       </small>
                       {bottomConnection && !bottomConnection.isConnected && (
                         <AbandonNotice
