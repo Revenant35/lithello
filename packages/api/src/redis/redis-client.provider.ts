@@ -16,6 +16,8 @@ export function provideRedisClient(): Provider {
     useFactory: async (config: ConfigService): Promise<AppRedisClient> => {
       const logger = new Logger('Redis Pool');
       const pool = createClient({
+        username: config.get('REDIS_USERNAME'),
+        password: config.get('REDIS_PASSWORD'),
         socket: {
           host: config.getOrThrow('REDIS_HOST'),
           port: Number(config.getOrThrow('REDIS_PORT')),
