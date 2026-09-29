@@ -145,6 +145,7 @@ describe('GameService', () => {
       getPlayer: vi.fn(async ({ id }: { id: UserID }) =>
         id === WHITE_ID ? WHITE : id === BLACK_ID ? BLACK : null,
       ),
+      updateRating: vi.fn().mockResolvedValue(undefined),
     };
 
     redis = {
@@ -403,7 +404,37 @@ describe('GameService', () => {
       ).rejects.toThrow(NotAParticipantError);
     });
 
-    it('settles ratings unchanged while rating calculation is pending', async () => {
+    it('applies the rating change to a rated game', async () => {
+      // White resigns at 1500 against 1520, so white loses and both move.
+      await service.resign({ gameId: GAME_ID, userId: WHITE_ID });
+
+      const settled = games.finishGame.mock.calls[0]![0];
+
+      expect(settled.whiteRatingAfter).toBeLessThan(1500);
+      expect(settled.blackRatingAfter).toBeGreaterThan(1520);
+      expect(settled.whiteRatingAfter - 1500).toBe(
+        -(settled.blackRatingAfter - 1520),
+      );
+    });
+
+    it('writes the new ratings back to both players', async () => {
+      await service.resign({ gameId: GAME_ID, userId: WHITE_ID });
+
+      const settled = games.finishGame.mock.calls[0]![0];
+
+      expect(players.updateRating).toHaveBeenCalledWith({
+        userId: WHITE_ID,
+        rating: settled.whiteRatingAfter,
+      });
+      expect(players.updateRating).toHaveBeenCalledWith({
+        userId: BLACK_ID,
+        rating: settled.blackRatingAfter,
+      });
+    });
+
+    it('leaves ratings alone in an unrated game', async () => {
+      givenSession({ game: makeGame({ isRated: false }) });
+
       await service.resign({ gameId: GAME_ID, userId: WHITE_ID });
 
       expect(games.finishGame).toHaveBeenCalledWith(
@@ -412,6 +443,7 @@ describe('GameService', () => {
           blackRatingAfter: 1520,
         }),
       );
+      expect(players.updateRating).not.toHaveBeenCalled();
     });
   });
 

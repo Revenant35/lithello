@@ -47,6 +47,14 @@ export class PlayerRepository {
     return rows.map((row) => toPlayer(row.player, row.user));
   }
 
+  /** Overwrites a player's rating; the caller has already worked out the value. */
+  async updateRating(args: { userId: UserID; rating: number }): Promise<void> {
+    await this.db
+      .update(player)
+      .set({ rating: args.rating })
+      .where(eq(player.userId, args.userId));
+  }
+
   async createPlayer(args: {
     userId: UserID;
     rating: number;

@@ -16,6 +16,7 @@ import {
   getGameClocks,
   getLastMove,
   getOpponentColor,
+  getRatingsAfterGame,
   getTurnDeadline,
   getWinner,
   hasLegalMove,
@@ -273,9 +274,10 @@ export class GameService {
   }
 
   /**
-   * Rating changes are not calculated yet, so both sides settle unchanged. The
-   * columns still have to be written - they are constrained to become non-null
-   * together with endedAt.
+   * Settles the game and, when it was rated, both players' ratings.
+   *
+   * An unrated game still writes the after-ratings - they are constrained to
+   * become non-null together with endedAt - but leaves them where they were.
    */
   private async endGame(args: {
     session: GameSession;
@@ -284,15 +286,33 @@ export class GameService {
     finalBoard: GameBoard;
   }): Promise<void> {
     const { session, result, endReason, finalBoard } = args;
+    const { white, black, isRated } = session.game;
+
+    const ratings = isRated
+      ? getRatingsAfterGame({
+          whiteRating: white.ratingBefore,
+          blackRating: black.ratingBefore,
+          result,
+        })
+      : { white: white.ratingBefore, black: black.ratingBefore };
 
     await this.games.finishGame({
       id: session.game.id,
       result,
       endReason,
       finalBoard,
-      whiteRatingAfter: session.game.white.ratingBefore,
-      blackRatingAfter: session.game.black.ratingBefore,
+      whiteRatingAfter: ratings.white,
+      blackRatingAfter: ratings.black,
     });
+
+    if (!isRated) {
+      return;
+    }
+
+    await Promise.all([
+      this.players.updateRating({ userId: white.id, rating: ratings.white }),
+      this.players.updateRating({ userId: black.id, rating: ratings.black }),
+    ]);
   }
 
   /**
