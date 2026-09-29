@@ -1,369 +1,476 @@
-import { Injectable, Logger } from '@nestjs/common';
-import {
-  type GameState,
-  type GameID,
-  type GameSummary,
-  type Board,
-  UserID,
-  BoardLocation,
-  GameMessageContent,
-  PlayerColor,
-} from '@lithello/shared';
-import { err, ok, Result } from 'neverthrow';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Subject } from 'rxjs';
-import { GameRepository, GameRepositoryError } from './game.repository.ts';
-import { GameTasks } from './game.tasks.ts';
 import {
-  getGameScore,
+  type Game,
+  type GameBoard,
+  type GameEndReason,
+  type GameID,
+  type GameMessageContent,
+  type GameResult,
+  type GameSession,
+  type GameTimeControl,
+  type GameTimeControlID,
+  getCurrentBoard,
+  getGameClocks,
+  getLastMove,
+  INITIAL_BOARD,
+  type Player,
+  type PlayerColor,
+  type Square,
+  type UserID,
+} from '@lithello/shared';
+import {
+  GameAlreadyEndedError,
+  GameNotFoundError,
+  IllegalMoveError,
+  InvalidGameError,
+  NotAParticipantError,
+  NotYourTurnError,
+  PlayerNotFoundError,
+  TimeControlNotFoundError,
+} from './game.error.ts';
+import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
+import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
+import { GameRepository } from './game.repository.ts';
+import { PlayerRepository } from '../player/player.repository.ts';
+import {
+  applyMove,
+  getColorForPly,
   getOpponentColor,
-  getValidMoveLocations, performMove,
+  getWinner,
+  hasLegalMove,
+  isLegalMove,
 } from './game.utils.ts';
 
-const MATCH_HISTORY_LIMIT = 10;
+/** Deadlines of every in-progress game, scored by when the mover runs out. */
+const GAME_DEADLINES = 'game-deadlines';
 
-export enum GameServiceError {
-  NotFound = 'Not Found',
-  Unauthorized = 'Unauthorized',
-  IllegalMove = 'Illegal Move',
-  UnknownError = 'Unknown Error',
-}
+/** How long a sweeping process holds a claimed deadline before it is retried. */
+const CLAIM_LEASE_MS = 10_000;
+
+const CLAIM_BATCH_SIZE = 100;
 
 @Injectable()
 export class GameService {
   private readonly logger = new Logger(GameService.name);
 
-  private readonly _gameChanged$ = new Subject<GameID>();
-  public readonly gameChanged$ = this._gameChanged$.asObservable();
+  private readonly _gameSessionChanged$ = new Subject<GameSession>();
+  public readonly gameSessionChanged$ = this._gameSessionChanged$.asObservable();
 
   constructor(
-    private readonly repository: GameRepository,
-    private readonly tasks: GameTasks,
-  ) {
-    this.tasks.clockExpired$.subscribe(({ gameId, userId }) => {
-      this.handleClockExpired({ gameId, userId }).catch((error) =>
-        this.logger.error(error),
-      );
-    });
-  }
+    private readonly games: GameRepository,
+    private readonly players: PlayerRepository,
+    @Inject(REDIS_CLIENT) private readonly redis: AppRedisClient,
+  ) {}
 
-  async createGame(args: {
-    whiteId: UserID;
-    blackId: UserID;
-    startClockMs: number;
-  }): Promise<
-    Result<{ gameId: GameID; state: GameState }, GameServiceError>
-  > {
-    const result = await this.repository.createGame(args);
-    if (result.isErr()) {
-      return err(this.mapRepositoryError(result.error));
+  async getSession(args: { gameId: GameID }): Promise<GameSession> {
+    const game = await this.games.getGame({ id: args.gameId });
+
+    if (game === null) {
+      throw new GameNotFoundError();
     }
 
-    const { gameId, state } = result.value;
+    const [white, black, moves, messages] = await Promise.all([
+      this.getPlayer(game.white.userId),
+      this.getPlayer(game.black.userId),
+      this.games.getGameMoves({ gameId: game.id }),
+      this.games.getGameMessages({ gameId: game.id }),
+    ]);
 
-    if (state.status === 'active') {
-      const activeMember =
-        state.activePlayer === 'w' ? state.white : state.black;
-
-      if (activeMember.clock.kind === 'active') {
-        this.tasks.scheduleClock({
-          gameId,
-          userId: activeMember.id,
-          expiresAt: activeMember.clock.expiresAt,
-        });
-      }
-    }
-
-    return ok({ gameId, state });
+    return { game, white, black, moves, messages };
   }
 
-  async getState(args: {
-    gameId: GameID;
-  }): Promise<Result<GameState, GameServiceError>> {
-    const { gameId } = args;
-
-    const result = await this.repository.getGame({ gameId });
-    if (result.isErr()) {
-      return err(this.mapRepositoryError(result.error));
-    }
-
-    return ok(result.value);
-  }
-
-  async getMatchHistory(args: {
+  async getGames(args: {
     userId: UserID;
-  }): Promise<Result<GameSummary[], GameServiceError>> {
-    const { userId } = args;
+    limit?: number;
+    offset?: number;
+  }): Promise<Game[]> {
+    return this.games.getGames(args);
+  }
 
-    const result = await this.repository.listFinishedGames({
-      userId,
-      limit: MATCH_HISTORY_LIMIT,
-    });
-    if (result.isErr()) {
-      return err(this.mapRepositoryError(result.error));
+  /** Every configured time control, for callers choosing one before createGame. */
+  async getTimeControls(): Promise<GameTimeControl[]> {
+    return this.games.getTimeControls();
+  }
+
+  /**
+   * Seats both players and writes ply 0 - the initial position, with no square
+   * played. Every later move reads its clock origin from the previous ply, so
+   * that row is what gives black's first move something to count from.
+   */
+  async createGame(args: {
+    whiteUserId: UserID;
+    blackUserId: UserID;
+    timeControlId: GameTimeControlID;
+    isRated: boolean;
+  }): Promise<GameSession> {
+    const { whiteUserId, blackUserId, timeControlId, isRated } = args;
+
+    if (whiteUserId === blackUserId) {
+      throw new InvalidGameError('A game needs two different players');
     }
 
-    return ok(result.value);
+    const [white, black, timeControl] = await Promise.all([
+      this.getPlayer(whiteUserId),
+      this.getPlayer(blackUserId),
+      this.getTimeControl(timeControlId)
+    ]);
+
+    const startedAt = new Date();
+
+    const gameId = await this.games.createGame({
+      white,
+      black,
+      timeControlId,
+      isRated,
+      startedAt,
+    });
+
+    await this.games.insertMove({
+      gameId,
+      ply: 0,
+      board: INITIAL_BOARD,
+      square: null,
+      whiteTimeMs: timeControl.startClockMs,
+      blackTimeMs: timeControl.startClockMs,
+      playedAt: startedAt,
+    });
+
+    return this.publishSession({ gameId });
   }
 
   async move(args: {
     gameId: GameID;
     userId: UserID;
-    location: BoardLocation;
-  }): Promise<Result<GameState, GameServiceError>> {
-    const { gameId, userId, location } = args;
+    square: Square;
+  }): Promise<GameSession> {
+    const { gameId, userId, square } = args;
 
-    const stateResult = await this.getState({ gameId });
-    if (stateResult.isErr()) {
-      return err(stateResult.error);
+    const session = await this.getSession({ gameId });
+    const color = this.requireActiveParticipant(session, userId);
+
+    const lastMove = getLastMove(session.moves);
+
+    if (lastMove === null) {
+      throw new InvalidGameError('Game has no initial position');
     }
 
-    const state = stateResult.value;
-    if (state.status !== 'active') {
-      return err(GameServiceError.IllegalMove);
+    const ply = lastMove.ply + 1;
+
+    if (getColorForPly(ply) !== color) {
+      throw new NotYourTurnError();
     }
 
-    const playerColor = this.getPlayerColor(state, userId);
-    if (playerColor === null) {
-      return err(GameServiceError.Unauthorized);
+    const board = getCurrentBoard(session.moves);
+
+    if (!isLegalMove(board, color, square)) {
+      throw new IllegalMoveError();
     }
 
-    if (state.activePlayer !== playerColor) {
-      return err(GameServiceError.IllegalMove);
-    }
+    const playedAt = new Date();
+    const clocks = this.getClocksAfterTurn(session, color, lastMove.playedAt, playedAt);
 
-    const moveResult = performMove(state.board, {
-      location,
-      playerColor,
-    });
-    if (moveResult.isErr()) {
-      return err(GameServiceError.IllegalMove);
-    }
-
-    const board = moveResult.value;
-    const opponentColor = getOpponentColor(playerColor);
-    const clockMsRemaining = this.getClockMsRemaining(state, playerColor);
-
-    this.tasks.cancelClock({ gameId });
-
-    const recordResult = await this.repository.recordAction({
-      gameId,
-      board,
-      action: { kind: 'move', playerColor, location, clockMsRemaining },
-    });
-    if (recordResult.isErr()) {
-      return err(this.mapRepositoryError(recordResult.error));
-    }
-
-    const opponentMoves = getValidMoveLocations(
-      board,
-      opponentColor,
-    );
-
-    if (opponentMoves.length === 0) {
-      const ownMoves = getValidMoveLocations(board, playerColor);
-
-      if (ownMoves.length === 0) {
-        const completeResult = await this.completeGame(gameId, board);
-        if (completeResult.isErr()) {
-          return err(completeResult.error);
-        }
-      } else {
-        const passResult = await this.repository.recordAction({
-          gameId,
-          board,
-          action: { kind: 'pass', playerColor: opponentColor },
-        });
-        if (passResult.isErr()) {
-          return err(this.mapRepositoryError(passResult.error));
-        }
-
-        // Opponent had no legal moves, so the turn stays with the mover -
-        // their own reserve (already spent thinking on this move) keeps counting.
-        this.tasks.scheduleClock({
-          gameId,
-          userId,
-          expiresAt: new Date(Date.now() + clockMsRemaining),
-        });
-      }
-    } else {
-      const opponentId = this.getUserId(state, opponentColor);
-      const opponentClockMsRemaining = this.getClockMsRemaining(
-        state,
-        opponentColor,
-      );
-
-      this.tasks.scheduleClock({
-        gameId,
-        userId: opponentId,
-        expiresAt: new Date(Date.now() + opponentClockMsRemaining),
+    if (clocks[color === 'w' ? 'white' : 'black'] <= 0) {
+      await this.endGame({
+        session,
+        result: color === 'w' ? 'black_win' : 'white_win',
+        endReason: 'timeout',
+        finalBoard: board,
       });
+
+      return this.publishSession({ gameId });
     }
 
-    return this.getState({ gameId });
+    const nextBoard = applyMove(board, color, square);
+
+    await this.games.insertMove({
+      gameId,
+      ply,
+      board: nextBoard,
+      square,
+      whiteTimeMs: clocks.white,
+      blackTimeMs: clocks.black,
+      playedAt,
+    });
+
+    await this.settleTurn({ session, board: nextBoard, mover: color, ply, clocks, playedAt });
+
+    return this.publishSession({ gameId });
   }
 
-  async resign(args: {
-    gameId: GameID;
-    userId: UserID;
-  }): Promise<Result<GameState, GameServiceError>> {
+  async resign(args: { gameId: GameID; userId: UserID }): Promise<GameSession> {
     const { gameId, userId } = args;
 
-    const stateResult = await this.getState({ gameId });
-    if (stateResult.isErr()) {
-      return err(stateResult.error);
-    }
+    const session = await this.getSession({ gameId });
+    const color = this.requireActiveParticipant(session, userId);
 
-    const state = stateResult.value;
-    if (state.status !== 'active') {
-      return err(GameServiceError.IllegalMove);
-    }
-
-    const playerColor = this.getPlayerColor(state, userId);
-    if (playerColor === null) {
-      return err(GameServiceError.Unauthorized);
-    }
-
-    const result = playerColor === 'w' ? 'black_win' : 'white_win';
-
-    const updateResult = await this.repository.updateGame(gameId, {
-      status: 'finished',
-      result,
+    await this.endGame({
+      session,
+      result: color === 'w' ? 'black_win' : 'white_win',
       endReason: 'resignation',
-      endedAt: new Date(),
+      finalBoard: getCurrentBoard(session.moves),
     });
-    if (updateResult.isErr()) {
-      return err(this.mapRepositoryError(updateResult.error));
-    }
 
-    this.tasks.cancelClock({ gameId });
-
-    return this.getState({ gameId });
+    return this.publishSession({ gameId });
   }
 
   async sendMessage(args: {
     gameId: GameID;
     userId: UserID;
     content: GameMessageContent;
-  }): Promise<Result<GameState, GameServiceError>> {
+  }): Promise<GameSession> {
     const { gameId, userId, content } = args;
 
-    const stateResult = await this.getState({ gameId });
-    if (stateResult.isErr()) {
-      return err(stateResult.error);
+    const session = await this.getSession({ gameId });
+
+    if (this.getColor(session, userId) === null) {
+      throw new NotAParticipantError();
     }
 
-    const playerColor = this.getPlayerColor(stateResult.value, userId);
-    if (playerColor === null) {
-      return err(GameServiceError.Unauthorized);
-    }
+    await this.games.insertMessage({ gameId, userId, content });
 
-    const recordResult = await this.repository.recordMessage({
-      gameId,
-      userId,
-      message: content,
-    });
-    if (recordResult.isErr()) {
-      return err(this.mapRepositoryError(recordResult.error));
-    }
-
-    return this.getState({ gameId });
+    return this.publishSession({ gameId });
   }
 
-  private async completeGame(
-    gameId: GameID,
-    board: Board,
-  ): Promise<Result<void, GameServiceError>> {
-    const score = getGameScore(board);
-    const result =
-      score.white > score.black
-        ? 'white_win'
-        : score.black > score.white
-          ? 'black_win'
-          : 'draw';
-
-    const updateResult = await this.repository.updateGame(gameId, {
-      status: 'finished',
-      result,
-      endReason: 'normal',
-      endedAt: new Date(),
-    });
-    if (updateResult.isErr()) {
-      return err(this.mapRepositoryError(updateResult.error));
-    }
-
-    this.tasks.cancelClock({ gameId });
-
-    return ok();
-  }
-
-  private async handleClockExpired(args: {
-    gameId: GameID;
-    userId: UserID;
+  /**
+   * After a move lands, the turn either passes to the opponent, bounces back
+   * because they have nothing legal, or the game is over because neither side
+   * does. A pass is recorded as its own ply with an unchanged board.
+   */
+  private async settleTurn(args: {
+    session: GameSession;
+    board: GameBoard;
+    mover: PlayerColor;
+    ply: number;
+    clocks: { white: number; black: number };
+    playedAt: Date;
   }): Promise<void> {
-    const { gameId, userId } = args;
+    const { session, board, mover, ply, clocks, playedAt } = args;
+    const opponent = getOpponentColor(mover);
 
-    const stateResult = await this.getState({ gameId });
-    if (stateResult.isErr()) {
+    if (hasLegalMove(board, opponent)) {
       return;
     }
 
-    const state = stateResult.value;
-    if (state.status !== 'active') {
+    if (!hasLegalMove(board, mover)) {
+      await this.endGame({
+        session,
+        result: getWinner(board),
+        endReason: 'normal',
+        finalBoard: board,
+      });
       return;
     }
 
-    const playerColor = this.getPlayerColor(state, userId);
-    if (playerColor === null || state.activePlayer !== playerColor) {
-      // Stale timer, already superseded by a move, resign, or an earlier expiry.
-      return;
-    }
-
-    const result = playerColor === 'w' ? 'black_win' : 'white_win';
-
-    const updateResult = await this.repository.updateGame(gameId, {
-      status: 'finished',
-      result,
-      endReason: 'timeout',
-      endedAt: new Date(),
+    await this.games.insertMove({
+      gameId: session.game.id,
+      ply: ply + 1,
+      board,
+      square: null,
+      whiteTimeMs: clocks.white,
+      blackTimeMs: clocks.black,
+      playedAt,
     });
-    if (updateResult.isErr()) {
-      this.logger.error(updateResult.error);
-      return;
+  }
+
+  /**
+   * Rating changes are not calculated yet, so both sides settle unchanged. The
+   * columns still have to be written - they are constrained to become non-null
+   * together with endedAt.
+   */
+  private async endGame(args: {
+    session: GameSession;
+    result: GameResult;
+    endReason: GameEndReason;
+    finalBoard: GameBoard;
+  }): Promise<void> {
+    const { session, result, endReason, finalBoard } = args;
+
+    await this.games.finishGame({
+      id: session.game.id,
+      result,
+      endReason,
+      finalBoard,
+      whiteRatingAfter: session.game.white.ratingBefore,
+      blackRatingAfter: session.game.black.ratingBefore,
+    });
+  }
+
+  /**
+   * The mover has been on the clock since the previous ply; the idle side's
+   * clock is untouched. Stored values are post-increment.
+   */
+  private getClocksAfterTurn(
+    session: GameSession,
+    mover: PlayerColor,
+    turnStartedAt: Date,
+    playedAt: Date,
+  ): { white: number; black: number } {
+    const clocks = getGameClocks(session.moves, session.game.timeControl);
+    const elapsed = playedAt.getTime() - turnStartedAt.getTime();
+    const { incrementMs } = session.game.timeControl;
+
+    const key = mover === 'w' ? 'white' : 'black';
+
+    return { ...clocks, [key]: clocks[key] - elapsed + incrementMs };
+  }
+
+  private requireActiveParticipant(
+    session: GameSession,
+    userId: UserID,
+  ): PlayerColor {
+    if (session.game.endedAt !== null) {
+      throw new GameAlreadyEndedError();
     }
 
-    this._gameChanged$.next(gameId);
+    const color = this.getColor(session, userId);
+
+    if (color === null) {
+      throw new NotAParticipantError();
+    }
+
+    return color;
   }
 
-  private getUserId(state: GameState, playerColor: PlayerColor): UserID {
-    return playerColor === 'w' ? state.white.id : state.black.id;
-  }
-
-  private getPlayerColor(state: GameState, userId: UserID): PlayerColor | null {
-    if (userId === state.white.id) {
+  private getColor(session: GameSession, userId: UserID): PlayerColor | null {
+    if (session.game.white.userId === userId) {
       return 'w';
     }
 
-    if (userId === state.black.id) {
+    if (session.game.black.userId === userId) {
       return 'b';
     }
 
     return null;
   }
 
-  private getClockMsRemaining(state: GameState, playerColor: PlayerColor): number {
-    const member = playerColor === 'w' ? state.white : state.black;
+  private async getPlayer(userId: UserID): Promise<Player> {
+    const player = await this.players.getPlayer({ id: userId });
 
-    return member.clock.kind === 'active'
-      ? Math.max(0, member.clock.expiresAt.getTime() - Date.now())
-      : member.clock.clockTimeMilliseconds;
+    if (player === null) {
+      throw new PlayerNotFoundError(`No player record for user ${userId}`);
+    }
+
+    return player;
   }
 
-  private mapRepositoryError(error: GameRepositoryError): GameServiceError {
-    switch (error) {
-      case GameRepositoryError.NotFound:
-        return GameServiceError.NotFound;
-      case GameRepositoryError.UnknownError:
-        return GameServiceError.UnknownError;
+  private async getTimeControl(id: GameTimeControlID): Promise<GameTimeControl> {
+    const timeControl = await this.games.getTimeControl({ id });
+
+    if (timeControl === null) {
+      throw new TimeControlNotFoundError();
+    }
+
+    return timeControl;
+  }
+
+  private async publishSession(args: { gameId: GameID }): Promise<GameSession> {
+    const session = await this.getSession(args);
+
+    await this.syncClockDeadline(session);
+    this._gameSessionChanged$.next(session);
+
+    return session;
+  }
+
+  /**
+   * Who is on the clock and when they run out.
+   *
+   * The deadline is absolute - the previous ply's `playedAt` plus that side's
+   * remaining time - so recomputing it never pushes it forward. An unrelated
+   * republish (a chat message, a reconnect) cannot hand the mover extra time.
+   */
+  private getTurnDeadline(
+    session: GameSession,
+  ): { color: PlayerColor; expiresAt: Date } | null {
+    if (session.game.endedAt !== null) {
+      return null;
+    }
+
+    const lastMove = getLastMove(session.moves);
+
+    if (lastMove === null) {
+      return null;
+    }
+
+    const color = getColorForPly(lastMove.ply + 1);
+    const clocks = getGameClocks(session.moves, session.game.timeControl);
+    const remaining = clocks[color === 'w' ? 'white' : 'black'];
+
+    return {
+      color,
+      expiresAt: new Date(lastMove.playedAt.getTime() + remaining),
+    };
+  }
+
+  /**
+   * Records when this game's clock next runs out, or drops it once the game is
+   * over. Kept in Redis rather than a process timer so deadlines survive a
+   * restart and any instance can act on them.
+   */
+  private async syncClockDeadline(session: GameSession): Promise<void> {
+    const gameId = session.game.id;
+    const deadline = this.getTurnDeadline(session);
+
+    if (deadline === null) {
+      await this.redis.zRem(GAME_DEADLINES, gameId);
+      return;
+    }
+
+    await this.redis.zAdd(GAME_DEADLINES, {
+      score: deadline.expiresAt.getTime(),
+      value: gameId,
+    });
+  }
+
+  /**
+   * Claims every deadline that has come due and ends those games on time. The
+   * claim is atomic, so with several instances running exactly one handles a
+   * given game.
+   *
+   * Driven by GameTasks on a cron; safe to call directly in a test.
+   */
+  async sweepExpiredClocks(): Promise<void> {
+    const now = Date.now();
+
+    const due = await this.redis.claimDueDeadlines(
+      GAME_DEADLINES,
+      now,
+      now + CLAIM_LEASE_MS,
+      CLAIM_BATCH_SIZE,
+    );
+
+    for (const gameId of due) {
+      await this.handleClockExpiry(gameId as GameID);
+    }
+  }
+
+  /**
+   * Re-reads the game before acting: a move landing just before the sweep moves
+   * the deadline on, and the claim would otherwise end a game still in play.
+   */
+  private async handleClockExpiry(gameId: GameID): Promise<void> {
+    try {
+      const session = await this.getSession({ gameId });
+      const deadline = this.getTurnDeadline(session);
+
+      if (deadline === null || deadline.expiresAt.getTime() > Date.now()) {
+        // Ended, or the clock has moved on - rewrite the score and leave it.
+        await this.syncClockDeadline(session);
+        return;
+      }
+
+      await this.endGame({
+        session,
+        result: deadline.color === 'w' ? 'black_win' : 'white_win',
+        endReason: 'timeout',
+        finalBoard: getCurrentBoard(session.moves),
+      });
+
+      await this.publishSession({ gameId });
+    } catch (error) {
+      // The lease expires on its own, so a failure here is retried.
+      this.logger.error(error);
     }
   }
 }

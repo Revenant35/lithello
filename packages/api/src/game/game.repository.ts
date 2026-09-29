@@ -10,6 +10,7 @@ import type {
   GameMove,
   GameResult,
   GameTimeControl,
+  GameTimeControlID,
   Player,
   Square,
   UserID,
@@ -90,6 +91,18 @@ export class GameRepository {
       .orderBy(asc(gameMessage.createdAt));
 
     return rows.map(toGameMessage);
+  }
+
+  async getTimeControl(args: {
+    id: GameTimeControlID;
+  }): Promise<GameTimeControl | null> {
+    const [row] = await this.db
+      .select()
+      .from(gameTimeControl)
+      .where(eq(gameTimeControl.id, args.id))
+      .limit(1);
+
+    return row === undefined ? null : toGameTimeControl(row);
   }
 
   /** Every configured time control. New ones are added directly in the database. */

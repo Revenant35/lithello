@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   type GameID,
+  type GameTimeControl,
   type Lobby,
   type LobbyID,
   LobbyIDSchema,
@@ -146,7 +147,6 @@ export class LobbyService {
         },
         expiresAt: new Date(Date.now() + LOBBY_LIFETIME_MS),
         status: 'open',
-        gameSettings: {},
       },
     });
 
@@ -299,21 +299,34 @@ export class LobbyService {
       return;
     }
 
-    const gameResult = await this.game.createGame({
-      whiteId: lobby.host.id,
-      blackId: lobby.guest.id,
-      startClockMs: DEFAULT_GAME_CLOCK_MS,
-    });
+    const timeControl = await this.getDefaultTimeControl();
 
-    if (gameResult.isErr()) {
-      this.logger.error(gameResult.error);
+    if (timeControl === null) {
+      this.logger.error(
+        'Cannot start a game: no time controls are configured in the database',
+      );
       return;
     }
 
-    const closeResult = await this.repository.close({
-      lobby,
-      gameId: gameResult.value.gameId,
-    });
+    let gameId: GameID;
+
+    try {
+      // Unrated until rating calculation exists - marking these rated would
+      // record a rated game whose ratings never move.
+      const session = await this.game.createGame({
+        whiteUserId: lobby.host.id,
+        blackUserId: lobby.guest.id,
+        timeControlId: timeControl.id,
+        isRated: false,
+      });
+
+      gameId = session.game.id;
+    } catch (error) {
+      this.logger.error(error);
+      return;
+    }
+
+    const closeResult = await this.repository.close({ lobby, gameId });
 
     if (closeResult.isErr()) {
       this.logger.error(closeResult.error);
@@ -321,7 +334,7 @@ export class LobbyService {
     }
 
     this._lobbyChanged$.next(lobbyId);
-    this._gameStarted$.next({ lobbyId, gameId: gameResult.value.gameId });
+    this._gameStarted$.next({ lobbyId, gameId });
   }
 
   async destroy(args: {
@@ -335,6 +348,24 @@ export class LobbyService {
     }
 
     return result;
+  }
+
+  /**
+   * Lobbies cannot choose a time control yet, so this prefers the default and
+   * otherwise takes whatever is configured.
+   */
+  private async getDefaultTimeControl(): Promise<GameTimeControl | null> {
+    const timeControls = await this.game.getTimeControls();
+
+    return (
+      timeControls.find(
+        (timeControl) =>
+          timeControl.startClockMs === DEFAULT_GAME_CLOCK_MS &&
+          timeControl.incrementMs === 0,
+      ) ??
+      timeControls[0] ??
+      null
+    );
   }
 
   private async removeMemberFromLobby(

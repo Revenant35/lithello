@@ -31,6 +31,20 @@ export type AppRedisClient = RedisClientType<
         transformReply(reply: string[]): string[];
       }>
     >;
+    claimDueDeadlines: ReturnType<
+      typeof defineScript<{
+        NUMBER_OF_KEYS: number;
+        SCRIPT: string;
+        parseCommand(
+          parser: CommandParser,
+          key: string,
+          nowMs: number,
+          leaseUntilMs: number,
+          limit: number,
+        ): void;
+        transformReply(reply: string[]): string[];
+      }>
+    >;
     promoteGuest: ReturnType<
       typeof defineScript<{
         NUMBER_OF_KEYS: number;

@@ -95,6 +95,38 @@ export function provideRedisClient(): Provider {
               return reply;
             },
           }),
+          claimDueDeadlines: defineScript({
+            NUMBER_OF_KEYS: 1,
+            SCRIPT: `
+              local due = redis.call(
+                'ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1], 'LIMIT', 0, ARGV[3]
+              )
+
+              -- Lease rather than remove: if this process dies mid-handling the
+              -- entry becomes due again instead of being lost. The caller
+              -- rewrites or removes the score once it has acted.
+              for i = 1, #due do
+                redis.call('ZADD', KEYS[1], ARGV[2], due[i])
+              end
+
+              return due
+            `,
+            parseCommand(
+              parser: CommandParser,
+              key: string,
+              nowMs: number,
+              leaseUntilMs: number,
+              limit: number,
+            ) {
+              parser.pushKey(key);
+              parser.push(nowMs.toString());
+              parser.push(leaseUntilMs.toString());
+              parser.push(limit.toString());
+            },
+            transformReply(reply: string[]): string[] {
+              return reply;
+            },
+          }),
           promoteGuest: defineScript({
             NUMBER_OF_KEYS: 1,
             SCRIPT: `

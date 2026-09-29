@@ -1,5 +1,5 @@
 import type { Square } from './game-board.ts';
-import type { GameSession } from './game-session.ts';
+import type { GameSessionWire } from './game-session.ts';
 import type { GameMessageContent } from './game-message.ts';
 
 export interface ClientToServerGameEvents {
@@ -12,5 +12,5 @@ export interface ClientToServerGameEvents {
 
 export interface ServerToClientGameEvents {
   /** The whole session, pushed after every change. */
-  session: (session: GameSession) => void;
+  session: (session: GameSessionWire) => void;
 }

@@ -1,24 +1,37 @@
-import { Controller, Get, InternalServerErrorException } from '@nestjs/common';
-import { GameService } from './game.service.ts';
+import { Controller, Get, Query } from '@nestjs/common';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
-import type { GameSummary, UserID } from '@lithello/shared';
+import { GameSchema, type UserID } from '@lithello/shared';
+import { z } from 'zod';
+import { GameService } from './game.service.ts';
+
+const GameListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 @Controller('game')
 export class GameController {
-  constructor(private readonly gameService: GameService) {}
+  constructor(private readonly games: GameService) {}
 
-  @Get('history')
-  async getHistory(
+  /**
+   * Games the caller played either side of, newest first.
+   *
+   * Encoded on the way out: a Game carries its bitboards as bigint, which
+   * JSON.stringify refuses. `z.encode` turns them into their hex wire form.
+   */
+  @Get()
+  async getGames(
     @Session() session: UserSession,
-  ): Promise<{ games: GameSummary[] }> {
-    const result = await this.gameService.getMatchHistory({
+    @Query() query: unknown,
+  ): Promise<{ games: z.input<typeof GameSchema>[] }> {
+    const { limit, offset } = GameListQuerySchema.parse(query);
+
+    const games = await this.games.getGames({
       userId: session.user.id as UserID,
+      limit,
+      offset,
     });
 
-    if (result.isErr()) {
-      throw new InternalServerErrorException();
-    }
-
-    return { games: result.value };
+    return { games: games.map((game) => z.encode(GameSchema, game)) };
   }
 }

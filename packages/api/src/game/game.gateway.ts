@@ -14,24 +14,29 @@ import {
   Logger,
   NotFoundException,
   UnauthorizedException,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { Server as SocketIOServer, Socket as SocketIOSocket } from 'socket.io';
 import {
-  GameIDSchema,
+  type ClientToServerGameEvents,
   type GameID,
-  ClientToServerGameEvents,
-  ServerToClientGameEvents,
-  GameState,
-  BoardLocationSchema,
+  GameIDSchema,
   GameMessageContentSchema,
+  GameSessionSchema,
+  type ServerToClientGameEvents,
+  SquareSchema,
+  type User,
   UserSchema,
-  User,
 } from '@lithello/shared';
 import { AuthGuard, AuthService } from '@thallesp/nestjs-better-auth';
-import { PresenceService } from '../presence/presence.service.ts';
 import { fromNodeHeaders } from 'better-auth/node';
+import { z } from 'zod';
+import { PresenceService } from '../presence/presence.service.ts';
+import { GameErrorFilter } from './game-error.filter.ts';
+import { GameNotFoundError } from './game.error.ts';
 import { GameService } from './game.service.ts';
+import { ZodErrorFilter } from './zod-error.filter.ts';
 
 type SocketData = { user: User; gameId: GameID };
 
@@ -45,6 +50,7 @@ type Socket = SocketIOSocket<
 >;
 
 @UseGuards(AuthGuard)
+@UseFilters(GameErrorFilter, ZodErrorFilter)
 @WebSocketGateway({ namespace: '/game' })
 export class GameGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
@@ -60,9 +66,13 @@ export class GameGateway
     private readonly game: GameService,
   ) {}
 
-  async afterInit(server: Server) {
-    this.game.gameChanged$.subscribe((gameId) => {
-      this.sendStateToGame({ gameId });
+  afterInit(server: Server) {
+    // Every command the service completes republishes the session, so this is
+    // the only place a change is broadcast - handlers do not emit themselves.
+    this.game.gameSessionChanged$.subscribe((session) => {
+      server
+        .to(session.game.id)
+        .emit('session', z.encode(GameSessionSchema, session));
     });
 
     server.use(async (socket, next) => {
@@ -75,33 +85,33 @@ export class GameGateway
           return next(new UnauthorizedException());
         }
 
-        const gameResult = GameIDSchema.safeParse(
-          socket.handshake.auth['gameId'],
-        );
+        const gameId = GameIDSchema.safeParse(socket.handshake.auth['gameId']);
 
-        if (!gameResult.success) {
+        if (!gameId.success) {
           return next(new BadRequestException());
         }
 
-        const gameStateResult = await this.game.getState({
-          gameId: gameResult.data,
-        });
-        if (gameStateResult.isErr()) {
-          return next(new NotFoundException());
-        }
+        const session = await this.game.getSession({ gameId: gameId.data });
 
         if (
-          result.user.id !== gameStateResult.value.white.id &&
-          result.user.id !== gameStateResult.value.black.id
+          result.user.id !== session.game.white.userId &&
+          result.user.id !== session.game.black.userId
         ) {
           return next(new UnauthorizedException());
         }
 
         socket.data.user = result.user;
-        socket.data.gameId = gameResult.data;
+        socket.data.gameId = gameId.data;
+
         return next();
       } catch (error) {
+        // Filters do not run for middleware, so this maps by hand.
+        if (error instanceof GameNotFoundError) {
+          return next(new NotFoundException(error.message));
+        }
+
         this.logger.error(error);
+
         return next(new InternalServerErrorException());
       }
     });
@@ -114,7 +124,7 @@ export class GameGateway
       await client.join(gameId);
       await this.presence.onGameConnect({ userId: user.id, gameId });
 
-      await this.sendStateToUser({ gameId, client });
+      client.emit('session', await this.getEncodedSession(gameId));
     } catch (error) {
       this.logger.error(error);
     }
@@ -130,20 +140,12 @@ export class GameGateway
     }
   }
 
-  @SubscribeMessage('get-state')
-  async handleGetState(@ConnectedSocket() client: Socket): Promise<void> {
-    try {
-      const { gameId } = this.getSocketData(client);
+  /** A read, so it answers the asking socket rather than the whole room. */
+  @SubscribeMessage('get-session')
+  async handleGetSession(@ConnectedSocket() client: Socket): Promise<void> {
+    const { gameId } = this.getSocketData(client);
 
-      const result = await this.game.getState({ gameId });
-      if (result.isErr()) {
-        return;
-      }
-
-      this.sendState({ gameId, state: result.value });
-    } catch (error) {
-      this.logger.error(error);
-    }
+    client.emit('session', await this.getEncodedSession(gameId));
   }
 
   @SubscribeMessage('move')
@@ -151,35 +153,17 @@ export class GameGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() body: unknown,
   ): Promise<void> {
-    try {
-      const { user, gameId } = this.getSocketData(client);
-      const location = BoardLocationSchema.parse(body);
+    const { user, gameId } = this.getSocketData(client);
+    const square = SquareSchema.parse(body);
 
-      const result = await this.game.move({ userId: user.id, gameId, location });
-      if (result.isErr()) {
-        return;
-      }
-
-      this.sendState({ gameId, state: result.value });
-    } catch (error) {
-      this.logger.error(error);
-    }
+    await this.game.move({ gameId, userId: user.id, square });
   }
 
   @SubscribeMessage('resign')
   async handleResign(@ConnectedSocket() client: Socket): Promise<void> {
-    try {
-      const { user, gameId } = this.getSocketData(client);
+    const { user, gameId } = this.getSocketData(client);
 
-      const result = await this.game.resign({ userId: user.id, gameId });
-      if (result.isErr()) {
-        return;
-      }
-
-      this.sendState({ gameId, state: result.value });
-    } catch (error) {
-      this.logger.error(error);
-    }
+    await this.game.resign({ gameId, userId: user.id });
   }
 
   @SubscribeMessage('send-message')
@@ -187,202 +171,24 @@ export class GameGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() body: unknown,
   ): Promise<void> {
-    try {
-      const { user, gameId } = this.getSocketData(client);
-      const content = GameMessageContentSchema.parse(body);
+    const { user, gameId } = this.getSocketData(client);
+    const content = GameMessageContentSchema.parse(body);
 
-      const result = await this.game.sendMessage({ userId: user.id, gameId, content });
-      if (result.isErr()) {
-        return;
-      }
-
-      this.sendState({ gameId, state: result.value });
-    } catch (error) {
-      this.logger.error(error);
-    }
+    await this.game.sendMessage({ gameId, userId: user.id, content });
   }
 
-  // @SubscribeMessage('offer-draw')
-  // async handleOfferDraw(@ConnectedSocket() client: Socket): Promise<void> {
-  //   try {
-  //     const { user, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.offerDraw({ user, gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.server.to(gameId).emit('draw-offered', result.value);
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('cancel-draw-offer')
-  // async handleCancelDrawOffer(
-  //   @ConnectedSocket() client: Socket,
-  // ): Promise<void> {
-  //   try {
-  //     const { user, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.cancelDrawOffer({ gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.server.to(gameId).emit('draw-offer-cancelled');
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('accept-draw-offer')
-  // async handleAcceptDrawOffer(
-  //   @ConnectedSocket() client: Socket,
-  // ): Promise<void> {
-  //   try {
-  //     const { userId, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.acceptDrawOffer({ userId, gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.sendState({ gameId, state: result.value });
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('reject-draw-offer')
-  // async handleRejectDrawOffer(
-  //   @ConnectedSocket() client: Socket,
-  // ): Promise<void> {
-  //   try {
-  //     const { gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.rejectDrawOffer({ gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.server.to(gameId).emit('draw-offer-rejected');
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('request-rematch')
-  // async handleRequestRematch(@ConnectedSocket() client: Socket): Promise<void> {
-  //   try {
-  //     const { userId, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.requestRematch({ userId, gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.sendState({ gameId, state: result.value });
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('cancel-rematch-request')
-  // async handleCancelRematchRequest(
-  //   @ConnectedSocket() client: Socket,
-  // ): Promise<void> {
-  //   try {
-  //     const { userId, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.cancelRematchRequest({ userId, gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.sendState({ gameId, state: result.value });
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('accept-rematch-request')
-  // async handleAcceptRematchRequest(
-  //   @ConnectedSocket() client: Socket,
-  // ): Promise<void> {
-  //   try {
-  //     const { userId, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.acceptRematchRequest({ userId, gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.sendState({ gameId, state: result.value });
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-  //
-  // @SubscribeMessage('reject-rematch-request')
-  // async handleRejectRematchRequest(
-  //   @ConnectedSocket() client: Socket,
-  // ): Promise<void> {
-  //   try {
-  //     const { userId, gameId } = this.getSocketData(client);
-  //
-  //     const result = await this.game.rejectRematchRequest({ userId, gameId });
-  //     if (result.isErr()) {
-  //       return;
-  //     }
-  //
-  //     this.sendState({ gameId, state: result.value });
-  //   } catch (error) {
-  //     this.logger.error(error);
-  //   }
-  // }
-
-  private sendState(args: { gameId: GameID; state: GameState }) {
-    this.server.to(args.gameId).emit('state', args.state);
-  }
-
-  private async sendStateToGame(args: { gameId: GameID }): Promise<void> {
-    const { gameId } = args;
-
-    const result = await this.game.getState({ gameId });
-    if (result.isErr()) {
-      return;
-    }
-
-    this.sendState({ gameId, state: result.value });
-  }
-
-  private async sendStateToUser(args: {
-    gameId: GameID;
-    client: Socket;
-  }): Promise<void> {
-    const { gameId, client } = args;
-
-    const result = await this.game.getState({ gameId });
-    if (result.isErr()) {
-      return;
-    }
-
-    client.emit('state', result.value);
+  /**
+   * A GameSession holds its bitboards as bigint, which JSON - and so socket.io -
+   * cannot serialize. Encoding turns them into their hex wire form.
+   */
+  private async getEncodedSession(gameId: GameID) {
+    return z.encode(GameSessionSchema, await this.game.getSession({ gameId }));
   }
 
   private getSocketData(client: Socket): SocketData {
-    const user = UserSchema.safeParse(client.data.user);
-    const gameId = GameIDSchema.safeParse(client.data.gameId);
+    const user = UserSchema.parse(client.data.user);
+    const gameId = GameIDSchema.parse(client.data.gameId);
 
-    if (!user.success) {
-      throw new Error('Missing or invalid user');
-    }
-
-    if (!gameId.success) {
-      throw new Error('Missing or invalid gameId');
-    }
-
-    return { user: user.data, gameId: gameId.data };
+    return { user: user, gameId: gameId };
   }
 }

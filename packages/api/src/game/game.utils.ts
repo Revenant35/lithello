@@ -1,214 +1,203 @@
 import {
-  Board,
-  BOARD_SIZE,
-  BoardCell,
-  BoardLocation,
-  GameMove,
-  GameScore,
-  PlayerColor,
-  PlayerScore,
+  BOARD_SQUARES,
+  type GameBoard,
+  type GameResult,
+  getBoardScore,
+  type PlayerColor,
+  type Square,
 } from '@lithello/shared';
-import { err, ok, Result } from 'neverthrow';
 
-const DIRECTIONS = [
-  [-1, -1],
-  [-1, 0],
-  [-1, 1],
-  [0, -1],
-  [0, 1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-] as const;
+/**
+ * Othello rules over bitboards. The service defers every rule decision here and
+ * only writes the results.
+ *
+ * Squares are row-major, so square = row * 8 + col and bit n is square n.
+ * Bitboards arrive as signed int8 values (that is how Postgres stores them), so
+ * everything here works on the unsigned view and converts back on the way out.
+ */
 
-const INITIAL_BOARD: Board = [
-  [null, null, null, null, null, null, null, null],
-  [null, null, null, null, null, null, null, null],
-  [null, null, null, null, null, null, null, null],
-  [null, null, null, 'w', 'b', null, null, null],
-  [null, null, null, 'b', 'w', null, null, null],
-  [null, null, null, null, null, null, null, null],
-  [null, null, null, null, null, null, null, null],
-  [null, null, null, null, null, null, null, null],
+const FULL_BOARD = (1n << 64n) - 1n;
+
+/** Column 0 and column 7 - the squares an east/west shift can wrap across. */
+const FILE_A = 0x0101010101010101n;
+const FILE_H = 0x8080808080808080n;
+const NOT_FILE_A = FULL_BOARD ^ FILE_A;
+const NOT_FILE_H = FULL_BOARD ^ FILE_H;
+
+/**
+ * A shift lands on the wrong row when it crosses a file boundary, so each
+ * horizontal direction masks the squares it must not land on.
+ */
+const DIRECTIONS: ((bits: bigint) => bigint)[] = [
+  (b) => (b << 8n) & FULL_BOARD, // south
+  (b) => b >> 8n, // north
+  (b) => (b << 1n) & NOT_FILE_A, // east
+  (b) => (b >> 1n) & NOT_FILE_H, // west
+  (b) => (b << 9n) & NOT_FILE_A, // south-east
+  (b) => (b << 7n) & NOT_FILE_H, // south-west
+  (b) => (b >> 7n) & NOT_FILE_A, // north-east
+  (b) => (b >> 9n) & NOT_FILE_H, // north-west
 ];
 
-export enum OthelloServiceError {
-  IllegalMove = 'Illegal Move',
+function toUnsigned(bits: bigint): bigint {
+  return BigInt.asUintN(64, bits);
 }
 
-export function createInitialBoard(): Board {
-  return structuredClone(INITIAL_BOARD);
+function toSigned(bits: bigint): bigint {
+  return BigInt.asIntN(64, bits);
 }
 
-export function getPlayerScore(
-  board: Board,
-  playerColor: PlayerColor,
-): PlayerScore {
-  return board.reduce(
-    (score, row) => score + row.filter((cell) => cell === playerColor).length,
-    0,
-  );
+function split(
+  board: GameBoard,
+  color: PlayerColor,
+): { own: bigint; opponent: bigint } {
+  const white = toUnsigned(board.whitePieces);
+  const black = toUnsigned(board.blackPieces);
+
+  return color === 'w'
+    ? { own: white, opponent: black }
+    : { own: black, opponent: white };
 }
 
-export function getGameScore(board: Board): GameScore {
-  return {
-    white: getPlayerScore(board, 'w'),
-    black: getPlayerScore(board, 'b'),
-  };
+function join(
+  color: PlayerColor,
+  own: bigint,
+  opponent: bigint,
+): GameBoard {
+  return color === 'w'
+    ? { whitePieces: toSigned(own), blackPieces: toSigned(opponent) }
+    : { whitePieces: toSigned(opponent), blackPieces: toSigned(own) };
 }
 
-export function getOpponentColor(playerColor: PlayerColor): PlayerColor {
-  return playerColor === 'w' ? 'b' : 'w';
-}
+function toSquares(bits: bigint): Square[] {
+  const squares: Square[] = [];
 
-export function getValidMoveLocations(
-  board: Board,
-  playerColor: PlayerColor,
-): BoardLocation[] {
-  const locations: BoardLocation[] = [];
-
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    for (let col = 0; col < BOARD_SIZE; col++) {
-      const location = { row, col };
-      if (isMoveValid(board, { location, playerColor })) {
-        locations.push(location);
-      }
+  for (let square = 0; square < BOARD_SQUARES; square++) {
+    if ((bits >> BigInt(square)) & 1n) {
+      squares.push(square);
     }
   }
 
-  return locations;
+  return squares;
 }
 
-export function performMoves(
-  board: Board,
-  moves: GameMove[],
-): Result<Board, OthelloServiceError> {
-  let finalBoard = structuredClone(board);
-  for (const move of moves) {
-    const result = performMove(finalBoard, move);
+/**
+ * Walks outward from `origin` collecting an unbroken run of opponent pieces.
+ * Returns them only if the run is closed by one of `own` - an open-ended run
+ * flips nothing.
+ */
+function getFlipsInDirection(
+  origin: bigint,
+  own: bigint,
+  opponent: bigint,
+  shift: (bits: bigint) => bigint,
+): bigint {
+  let run = 0n;
+  let cursor = shift(origin) & opponent;
 
-    if (result.isErr()) {
-      return err(OthelloServiceError.IllegalMove);
+  while (cursor !== 0n) {
+    run |= cursor;
+
+    const next = shift(cursor);
+
+    if ((next & own) !== 0n) {
+      return run;
     }
 
-    finalBoard = result.value;
+    cursor = next & opponent;
   }
 
-  return ok(finalBoard);
+  return 0n;
 }
 
-export function performMove(
-  board: Board,
-  move: GameMove,
-): Result<Board, OthelloServiceError> {
-  if (!isMoveValid(board, move)) {
-    return err(OthelloServiceError.IllegalMove);
+export function getOpponentColor(color: PlayerColor): PlayerColor {
+  return color === 'w' ? 'b' : 'w';
+}
+
+/**
+ * Whose turn a ply belongs to. Black moves first and ply 0 is the initial
+ * position rather than a move, so black owns the odd plies.
+ */
+export function getColorForPly(ply: number): PlayerColor {
+  return ply % 2 === 1 ? 'b' : 'w';
+}
+
+/** Every square `color` may legally play in this position. */
+export function getLegalMoves(board: GameBoard, color: PlayerColor): Square[] {
+  const { own, opponent } = split(board, color);
+  const empty = FULL_BOARD ^ (own | opponent);
+
+  let moves = 0n;
+
+  for (const shift of DIRECTIONS) {
+    // Grow a run of opponent pieces away from our own, then the empty square
+    // just past it is playable.
+    let run = shift(own) & opponent;
+
+    for (let step = 0; step < 5; step++) {
+      run |= shift(run) & opponent;
+    }
+
+    moves |= shift(run) & empty;
   }
 
-  const opponentColor = getOpponentColor(move.playerColor);
-  const nextBoard = structuredClone(board);
-
-  for (const [rowDelta, colDelta] of DIRECTIONS) {
-    const toFlip: BoardLocation[] = [];
-
-    let nextRow = move.location.row + rowDelta;
-    let nextCol = move.location.col + colDelta;
-
-    while (
-      isInBounds({ row: nextRow, col: nextCol }) &&
-      board[nextRow][nextCol] === opponentColor
-    ) {
-      toFlip.push({
-        row: nextRow,
-        col: nextCol,
-      });
-
-      nextRow += rowDelta;
-      nextCol += colDelta;
-    }
-
-    if (
-      toFlip.length > 0 &&
-      isInBounds({ row: nextRow, col: nextCol }) &&
-      board[nextRow][nextCol] === move.playerColor
-    ) {
-      for (const position of toFlip) {
-        nextBoard[position.row][position.col] = move.playerColor;
-      }
-    }
-  }
-
-  nextBoard[move.location.row][move.location.col] = move.playerColor;
-
-  return ok(nextBoard);
+  return toSquares(moves);
 }
 
-export function isMoveValid(board: Board, move: GameMove): boolean {
-  if (
-    !isInBounds(move.location) ||
-    isCellOccupied(board, move.location)
-  ) {
-    return false;
-  }
-
-  const opponentColor = getOpponentColor(move.playerColor);
-  return DIRECTIONS.some(([rowDelta, colDelta]) => {
-    let newLocation = {
-      row: move.location.row + rowDelta,
-      col: move.location.col + colDelta,
-    };
-
-    // A valid direction must start with at least one opponent piece.
-    if (
-      !isInBounds(newLocation) ||
-      !isCellOccupiedByPlayer(board, newLocation, opponentColor)
-    ) {
-      return false;
-    }
-
-    newLocation.row += rowDelta;
-    newLocation.col += colDelta;
-
-    while (isInBounds(newLocation)) {
-      const color = getCellColor(board, newLocation);
-
-      if (color === null) {
-        return false;
-      }
-
-      if (color === move.playerColor) {
-        return true;
-      }
-
-      newLocation.row += rowDelta;
-      newLocation.col += colDelta;
-    }
-
-    return false;
-  });
-}
-
-function getCellColor(board: Board, location: BoardLocation): BoardCell {
-  return board[location.row][location.col];
-}
-
-function isInBounds(location: BoardLocation): boolean {
-  return (
-    location.row >= 0 &&
-    location.row < BOARD_SIZE &&
-    location.col >= 0 &&
-    location.col < BOARD_SIZE
-  );
-}
-
-function isCellOccupied(board: Board, location: BoardLocation): boolean {
-  return board[location.row][location.col] !== null;
-}
-
-function isCellOccupiedByPlayer(
-  board: Board,
-  location: BoardLocation,
-  playerColor: PlayerColor,
+export function isLegalMove(
+  board: GameBoard,
+  color: PlayerColor,
+  square: Square,
 ): boolean {
-  return board[location.row][location.col] === playerColor;
+  return getLegalMoves(board, color).includes(square);
+}
+
+export function hasLegalMove(board: GameBoard, color: PlayerColor): boolean {
+  return getLegalMoves(board, color).length > 0;
+}
+
+/** The position after `color` plays `square`, with all flips applied. */
+export function applyMove(
+  board: GameBoard,
+  color: PlayerColor,
+  square: Square,
+): GameBoard {
+  const { own, opponent } = split(board, color);
+  const placed = 1n << BigInt(square);
+
+  if ((placed & (own | opponent)) !== 0n) {
+    throw new Error(`Square ${square} is already occupied`);
+  }
+
+  let flips = 0n;
+
+  for (const shift of DIRECTIONS) {
+    flips |= getFlipsInDirection(placed, own, opponent, shift);
+  }
+
+  if (flips === 0n) {
+    throw new Error(`Playing ${square} flips nothing, so it is not a legal move`);
+  }
+
+  return join(color, own | flips | placed, opponent & ~flips);
+}
+
+/** A game ends when neither side can move. */
+export function isGameOver(board: GameBoard): boolean {
+  return !hasLegalMove(board, 'w') && !hasLegalMove(board, 'b');
+}
+
+/** Result by piece count. Only meaningful once the game has actually ended. */
+export function getWinner(board: GameBoard): GameResult {
+  const { white, black } = getBoardScore(board);
+
+  if (white > black) {
+    return 'white_win';
+  }
+
+  if (black > white) {
+    return 'black_win';
+  }
+
+  return 'draw';
 }

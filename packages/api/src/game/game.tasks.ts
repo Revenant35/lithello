@@ -1,45 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { SchedulerRegistry } from '@nestjs/schedule';
-import { GameID, UserID } from '@lithello/shared';
-import { Subject } from 'rxjs';
+import { Injectable } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { GameService } from './game.service.ts';
 
-export type ClockExpiredEvent = { gameId: GameID; userId: UserID };
-
+/**
+ * Scheduling for the game module. Keeps the cron wiring out of the service so
+ * the service stays callable - and testable - without a scheduler.
+ */
 @Injectable()
 export class GameTasks {
-  private readonly logger = new Logger(GameTasks.name);
+  constructor(private readonly game: GameService) {}
 
-  private readonly _clockExpired$ = new Subject<ClockExpiredEvent>();
-  public readonly clockExpired$ = this._clockExpired$.asObservable();
-
-  constructor(private readonly schedulerRegistry: SchedulerRegistry) {}
-
-  scheduleClock(args: {
-    gameId: GameID;
-    userId: UserID;
-    expiresAt: Date;
-  }): void {
-    const { gameId, userId, expiresAt } = args;
-
-    this.cancelClock({ gameId });
-
-    const delayMs = Math.max(0, expiresAt.getTime() - Date.now());
-    const timeout = setTimeout(() => {
-      this.schedulerRegistry.deleteTimeout(this.getTimeoutName({ gameId }));
-      this._clockExpired$.next({ gameId, userId });
-    }, delayMs);
-
-    this.schedulerRegistry.addTimeout(this.getTimeoutName({ gameId }), timeout);
-  }
-
-  cancelClock(args: { gameId: GameID }): void {
-    const name = this.getTimeoutName(args);
-    if (this.schedulerRegistry.doesExist('timeout', name)) {
-      this.schedulerRegistry.deleteTimeout(name);
-    }
-  }
-
-  private getTimeoutName(args: { gameId: GameID }): string {
-    return `game:${args.gameId}:clock`;
+  @Cron(CronExpression.EVERY_SECOND, { waitForCompletion: true })
+  async sweepExpiredClocks(): Promise<void> {
+    await this.game.sweepExpiredClocks();
   }
 }

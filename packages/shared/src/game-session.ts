@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { GameSchema } from './game.ts';
 import { GameMessageSchema } from './game-message.ts';
 import { GameMoveSchema } from './game-move.ts';
-import { UserSchema } from './user.ts';
+import { PlayerSchema } from './player.ts';
 
 /**
  * Everything a client needs to render a game.
@@ -15,9 +15,17 @@ import { UserSchema } from './user.ts';
  */
 export const GameSessionSchema = z.object({
   game: GameSchema,
-  white: UserSchema,
-  black: UserSchema,
+  white: PlayerSchema,
+  black: PlayerSchema,
   moves: z.array(GameMoveSchema),
   messages: z.array(GameMessageSchema),
 });
 export type GameSession = z.infer<typeof GameSessionSchema>;
+
+/**
+ * The session as it travels: bitboards as hex rather than bigint, dates as
+ * strings. JSON cannot carry a bigint, so this is what actually goes over the
+ * socket. Encode with `z.encode(GameSessionSchema, session)` and decode on the
+ * far side with `z.decode`.
+ */
+export type GameSessionWire = z.input<typeof GameSessionSchema>;
