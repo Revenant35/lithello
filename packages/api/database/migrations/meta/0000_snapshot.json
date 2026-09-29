@@ -1,5 +1,5 @@
 {
-  "id": "fcfd7530-f699-459b-9cd7-ea0995bfad52",
+  "id": "9f6a2187-ff5b-4feb-9b92-670674a64cdf",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -515,28 +515,28 @@
         }
       },
       "foreignKeys": {
-        "game_white_user_id_user_id_fk": {
-          "name": "game_white_user_id_user_id_fk",
+        "game_white_user_id_player_user_id_fk": {
+          "name": "game_white_user_id_player_user_id_fk",
           "tableFrom": "game",
-          "tableTo": "user",
+          "tableTo": "player",
           "columnsFrom": [
             "white_user_id"
           ],
           "columnsTo": [
-            "id"
+            "user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "game_black_user_id_user_id_fk": {
-          "name": "game_black_user_id_user_id_fk",
+        "game_black_user_id_player_user_id_fk": {
+          "name": "game_black_user_id_player_user_id_fk",
           "tableFrom": "game",
-          "tableTo": "user",
+          "tableTo": "player",
           "columnsFrom": [
             "black_user_id"
           ],
           "columnsTo": [
-            "id"
+            "user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -708,15 +708,15 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "game_message_user_id_user_id_fk": {
-          "name": "game_message_user_id_user_id_fk",
+        "game_message_user_id_player_user_id_fk": {
+          "name": "game_message_user_id_player_user_id_fk",
           "tableFrom": "game_message",
-          "tableTo": "user",
+          "tableTo": "player",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "id"
+            "user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -898,6 +898,50 @@
         "game_time_control_increment_ms_valid": {
           "name": "game_time_control_increment_ms_valid",
           "value": "\"game_time_control\".\"increment_ms\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.player": {
+      "name": "player",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "rating": {
+          "name": "rating",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "player_user_id_user_id_fk": {
+          "name": "player_user_id_user_id_fk",
+          "tableFrom": "player",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "player_rating_valid": {
+          "name": "player_rating_valid",
+          "value": "\"player\".\"rating\" >= 0"
         }
       },
       "isRLSEnabled": false

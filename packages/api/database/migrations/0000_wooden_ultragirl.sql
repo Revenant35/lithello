@@ -123,14 +123,21 @@ CREATE TABLE "game_time_control" (
 	CONSTRAINT "game_time_control_increment_ms_valid" CHECK ("game_time_control"."increment_ms" >= 0)
 );
 --> statement-breakpoint
+CREATE TABLE "player" (
+	"user_id" uuid PRIMARY KEY NOT NULL,
+	"rating" smallint NOT NULL,
+	CONSTRAINT "player_rating_valid" CHECK ("player"."rating" >= 0)
+);
+--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "game" ADD CONSTRAINT "game_white_user_id_user_id_fk" FOREIGN KEY ("white_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "game" ADD CONSTRAINT "game_black_user_id_user_id_fk" FOREIGN KEY ("black_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "game" ADD CONSTRAINT "game_white_user_id_player_user_id_fk" FOREIGN KEY ("white_user_id") REFERENCES "public"."player"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "game" ADD CONSTRAINT "game_black_user_id_player_user_id_fk" FOREIGN KEY ("black_user_id") REFERENCES "public"."player"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "game" ADD CONSTRAINT "game_time_control_id_game_time_control_id_fk" FOREIGN KEY ("time_control_id") REFERENCES "public"."game_time_control"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "game_message" ADD CONSTRAINT "game_message_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "game_message" ADD CONSTRAINT "game_message_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "game_message" ADD CONSTRAINT "game_message_user_id_player_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."player"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "game_move" ADD CONSTRAINT "game_move_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "player" ADD CONSTRAINT "player_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");--> statement-breakpoint

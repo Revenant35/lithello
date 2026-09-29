@@ -3,10 +3,15 @@ import type {
   gameMessage,
   gameMove,
   gameTimeControl,
+  player,
   user,
 } from './schema/index.ts';
 
 export type UserRow = typeof user.$inferSelect;
+
+export type PlayerRow = typeof player.$inferSelect;
+export type NewPlayerRow = typeof player.$inferInsert;
+export type PlayerRowUpdate = Partial<NewPlayerRow>;
 
 export type GameTimeControlRow = typeof gameTimeControl.$inferSelect;
 export type NewGameTimeControlRow = typeof gameTimeControl.$inferInsert;

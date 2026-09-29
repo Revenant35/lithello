@@ -45,16 +45,32 @@ export const gameTimeControl = pgTable(
   ],
 );
 
+/**
+ * A user's presence in the rating system. Keyed by userId rather than a
+ * surrogate id, so a user has exactly one player record and the game tables can
+ * keep referencing a user id while pointing at this table.
+ */
+export const player = pgTable(
+  'player',
+  {
+    userId: uuid()
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    rating: smallint().notNull(),
+  },
+  (table) => [check('player_rating_valid', sql`${table.rating} >= 0`)],
+);
+
 export const game = pgTable(
   'game',
   {
     id: uuid().primaryKey().defaultRandom(),
     whiteUserId: uuid()
       .notNull()
-      .references(() => user.id),
+      .references(() => player.userId),
     blackUserId: uuid()
       .notNull()
-      .references(() => user.id),
+      .references(() => player.userId),
     timeControlId: uuid()
       .notNull()
       .references(() => gameTimeControl.id),
@@ -189,7 +205,7 @@ export const gameMessage = pgTable(
       .references(() => game.id, { onDelete: 'cascade' }),
     userId: uuid()
       .notNull()
-      .references(() => user.id),
+      .references(() => player.userId),
     content: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -213,20 +229,27 @@ export const gameTimeControlRelations = relations(
   }),
 );
 
+export const playerRelations = relations(player, ({ one, many }) => ({
+  user: one(user, { fields: [player.userId], references: [user.id] }),
+  whiteGames: many(game, { relationName: 'gameWhitePlayer' }),
+  blackGames: many(game, { relationName: 'gameBlackPlayer' }),
+  messages: many(gameMessage),
+}));
+
 export const gameRelations = relations(game, ({ one, many }) => ({
   timeControl: one(gameTimeControl, {
     fields: [game.timeControlId],
     references: [gameTimeControl.id],
   }),
-  whiteUser: one(user, {
+  whitePlayer: one(player, {
     fields: [game.whiteUserId],
-    references: [user.id],
-    relationName: 'gameWhiteUser',
+    references: [player.userId],
+    relationName: 'gameWhitePlayer',
   }),
-  blackUser: one(user, {
+  blackPlayer: one(player, {
     fields: [game.blackUserId],
-    references: [user.id],
-    relationName: 'gameBlackUser',
+    references: [player.userId],
+    relationName: 'gameBlackPlayer',
   }),
   moves: many(gameMove),
   messages: many(gameMessage),
@@ -238,5 +261,8 @@ export const gameMoveRelations = relations(gameMove, ({ one }) => ({
 
 export const gameMessageRelations = relations(gameMessage, ({ one }) => ({
   game: one(game, { fields: [gameMessage.gameId], references: [game.id] }),
-  user: one(user, { fields: [gameMessage.userId], references: [user.id] }),
+  player: one(player, {
+    fields: [gameMessage.userId],
+    references: [player.userId],
+  }),
 }));
