@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
 import {
-  GameSummarySchema,
+  type Game,
+  GameSchema,
   LobbyIDSchema,
-  type GameSummary,
+  type UserID,
 } from '@lithello/shared';
 import { MatchHistory } from '../components/MatchHistory';
 import { AppShell } from '../components/AppShell';
@@ -13,8 +14,10 @@ import { BoardArtwork } from '../components/BoardArtwork';
 import { RulesButton } from '../components/RulesButton';
 import { authClient } from '../lib/auth-client';
 
+// The wire carries bitboards as hex and dates as strings, so decoding is what
+// turns the payload into Games.
 const GameHistoryResponseSchema = z.object({
-  games: z.array(GameSummarySchema),
+  games: z.array(GameSchema),
 });
 
 const NewLobbyResponseSchema = z.object({
@@ -25,7 +28,7 @@ export function HomeView() {
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
   const [isCreating, setIsCreating] = useState(false);
-  const [games, setGames] = useState<GameSummary[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export function HomeView() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`${import.meta.env.VITE_API_URL}/game/history`, {
+    fetch(`${import.meta.env.VITE_API_URL}/game`, {
       credentials: 'include',
       signal: controller.signal,
     })
@@ -45,6 +48,8 @@ export function HomeView() {
         return response.json();
       })
       .then((data: unknown) => {
+        // safeParse runs the codec's decode direction, so hex becomes bigint
+        // and date strings become Dates.
         const parsed = GameHistoryResponseSchema.safeParse(data);
         if (parsed.success) {
           setGames(parsed.data.games);
@@ -226,7 +231,10 @@ export function HomeView() {
               </button>
             </div>
           ) : (
-            <MatchHistory games={games} />
+            <MatchHistory
+              games={games}
+              viewerId={session?.user.id as UserID}
+            />
           )}
         </section>
         <aside className="tip-card">

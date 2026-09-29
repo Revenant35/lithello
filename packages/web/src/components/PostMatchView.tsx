@@ -1,8 +1,8 @@
 import { Link } from 'react-router';
 import { Flag, Handshake, Trophy } from 'lucide-react';
-import type { FinishedGameState, PlayerColor } from '@lithello/shared';
+import type { GameEndReason, GameResult, PlayerColor } from '@lithello/shared';
 
-const REASON_COPY: Record<FinishedGameState['endReason'], string> = {
+const REASON_COPY: Record<GameEndReason, string> = {
   normal: 'Final result',
   resignation: 'By resignation',
   timeout: 'By timeout',
@@ -15,7 +15,7 @@ const OUTCOME_ICON = {
 } as const;
 
 function getOutcomeCopy(args: {
-  result: FinishedGameState['result'];
+  result: GameResult;
   viewerColor?: PlayerColor;
 }): { heading: string; message: string; outcome: 'win' | 'loss' | 'draw' } {
   const { result, viewerColor } = args;
@@ -53,8 +53,8 @@ export function PostMatchView({
   endReason,
   viewerColor,
 }: {
-  result: FinishedGameState['result'];
-  endReason: FinishedGameState['endReason'];
+  result: GameResult;
+  endReason: GameEndReason;
   viewerColor?: PlayerColor;
 }) {
   const copy = getOutcomeCopy({ result, viewerColor });

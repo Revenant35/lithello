@@ -69,14 +69,14 @@ export class GameService {
       throw new GameNotFoundError();
     }
 
-    const [white, black, moves, messages] = await Promise.all([
-      this.getPlayer(game.white.userId),
-      this.getPlayer(game.black.userId),
+    // Both seats arrive on the game itself, names included, so a session is
+    // the game plus its history.
+    const [moves, messages] = await Promise.all([
       this.games.getGameMoves({ gameId: game.id }),
       this.games.getGameMessages({ gameId: game.id }),
     ]);
 
-    return { game, white, black, moves, messages };
+    return { game, moves, messages };
   }
 
   async getGames(args: {
@@ -332,11 +332,11 @@ export class GameService {
   }
 
   private getColor(session: GameSession, userId: UserID): PlayerColor | null {
-    if (session.game.white.userId === userId) {
+    if (session.game.white.id === userId) {
       return 'w';
     }
 
-    if (session.game.black.userId === userId) {
+    if (session.game.black.id === userId) {
       return 'b';
     }
 

@@ -19,8 +19,9 @@ export type GameEndReason = z.infer<typeof GameEndReasonSchema>;
 export const GameSchema = z.object({
   id: GameIDSchema,
   timeControl: GameTimeControlSchema,
-  white: GamePlayerSchema,
-  black: GamePlayerSchema,
+  // gameId is redundant on a seat nested inside its own game.
+  white: GamePlayerSchema.omit({ gameId: true }),
+  black: GamePlayerSchema.omit({ gameId: true }),
   isRated: z.boolean(),
   createdAt: z.coerce.date(),
   startedAt: z.coerce.date().nullable(),

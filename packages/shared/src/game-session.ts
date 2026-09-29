@@ -4,10 +4,11 @@ import { GameMessageSchema } from './game-message.ts';
 import { GameMoveSchema, getLastMove } from './game-move.ts';
 import type { PlayerColor } from './game-player.ts';
 import { getGameClocks } from './game-time-control.ts';
-import { PlayerSchema } from './player.ts';
 
 /**
- * Everything a client needs to render a game.
+ * Everything a client needs to render a game. Both players travel on
+ * `game.white` and `game.black`, which carry their name and the ratings this
+ * game moved them between.
  *
  * The current position and the clocks are both derived rather than carried:
  * `getCurrentBoard(moves)` returns the last move's board (or the opening
@@ -17,8 +18,6 @@ import { PlayerSchema } from './player.ts';
  */
 export const GameSessionSchema = z.object({
   game: GameSchema,
-  white: PlayerSchema,
-  black: PlayerSchema,
   moves: z.array(GameMoveSchema),
   messages: z.array(GameMessageSchema),
 });

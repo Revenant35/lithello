@@ -4,7 +4,6 @@ import {
   type GameMessage,
   GameMessageIDSchema,
   type GameMove,
-  type GamePlayer,
   type GameTimeControl,
   GameTimeControlIDSchema,
   type PlayerColor,
@@ -15,6 +14,7 @@ import type {
   GameMoveRow,
   GameRow,
   GameTimeControlRow,
+  UserRow,
 } from '../database/database.type.ts';
 
 /**
@@ -63,40 +63,43 @@ export function toGameMove(row: GameMoveRow): GameMove {
 }
 
 /**
- * `game` holds both seats as paired columns, so each side is assembled here.
- * Colour is positional in the table and explicit on GamePlayer.
+ * `game` holds both seats as paired columns, so each side is assembled here
+ * from the game row and that side's user row. Colour is positional in the
+ * table and explicit on the seat.
  */
 function toGamePlayer(
-  row: GameRow,
+  userRow: UserRow,
   color: PlayerColor,
-  userId: string,
   ratingBefore: number,
   ratingAfter: number | null,
-): GamePlayer {
+): Game['white'] {
   return {
-    gameId: GameIDSchema.parse(row.id),
-    userId: UserIDSchema.parse(userId),
+    id: UserIDSchema.parse(userRow.id),
+    name: userRow.name,
     color,
     ratingBefore,
     ratingAfter,
   };
 }
 
-export function toGame(row: GameRow, timeControlRow: GameTimeControlRow): Game {
+export function toGame(
+  row: GameRow,
+  timeControlRow: GameTimeControlRow,
+  whiteUserRow: UserRow,
+  blackUserRow: UserRow,
+): Game {
   return {
     id: GameIDSchema.parse(row.id),
     timeControl: toGameTimeControl(timeControlRow),
     white: toGamePlayer(
-      row,
+      whiteUserRow,
       'w',
-      row.whiteUserId,
       row.whiteRatingBefore,
       row.whiteRatingAfter,
     ),
     black: toGamePlayer(
-      row,
+      blackUserRow,
       'b',
-      row.blackUserId,
       row.blackRatingBefore,
       row.blackRatingAfter,
     ),

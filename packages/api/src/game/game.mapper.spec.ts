@@ -6,6 +6,7 @@ import type {
   GameMoveRow,
   GameRow,
   GameTimeControlRow,
+  UserRow,
 } from '../database/database.type.ts';
 import {
   toGame,
@@ -28,6 +29,22 @@ function timeControlRow(
     ...overrides,
   };
 }
+
+function userRow(overrides: Partial<UserRow> = {}): UserRow {
+  return {
+    id: WHITE_USER_ID,
+    name: 'White',
+    email: 'white@example.com',
+    emailVerified: true,
+    image: null,
+    createdAt: new Date('2026-09-01T00:00:00Z'),
+    updatedAt: new Date('2026-09-01T00:00:00Z'),
+    ...overrides,
+  };
+}
+
+const WHITE_USER = userRow();
+const BLACK_USER = userRow({ id: BLACK_USER_ID, name: 'Black' });
 
 /** An in-progress game: started, with every outcome column still null. */
 function gameRow(overrides: Partial<GameRow> = {}): GameRow {
@@ -166,18 +183,18 @@ describe('toGameMove', () => {
 
 describe('toGame', () => {
   it('splits the paired columns into two seats', () => {
-    const game = toGame(gameRow(), timeControlRow());
+    const game = toGame(gameRow(), timeControlRow(), WHITE_USER, BLACK_USER);
 
     expect(game.white).toEqual({
-      gameId: GAME_ID,
-      userId: WHITE_USER_ID,
+      id: WHITE_USER_ID,
+      name: 'White',
       color: 'w',
       ratingBefore: 1500,
       ratingAfter: null,
     });
     expect(game.black).toEqual({
-      gameId: GAME_ID,
-      userId: BLACK_USER_ID,
+      id: BLACK_USER_ID,
+      name: 'Black',
       color: 'b',
       ratingBefore: 1520,
       ratingAfter: null,
@@ -186,7 +203,12 @@ describe('toGame', () => {
 
   it('embeds the time control it is handed, not the row id', () => {
     const timeControl = timeControlRow();
-    const game = toGame(gameRow({ timeControlId: timeControl.id }), timeControl);
+    const game = toGame(
+      gameRow({ timeControlId: timeControl.id }),
+      timeControl,
+      WHITE_USER,
+      BLACK_USER,
+    );
 
     expect(game.timeControl).toEqual({
       id: timeControl.id,
@@ -196,7 +218,7 @@ describe('toGame', () => {
   });
 
   it('leaves every outcome column null while the game is in progress', () => {
-    const game = toGame(gameRow(), timeControlRow());
+    const game = toGame(gameRow(), timeControlRow(), WHITE_USER, BLACK_USER);
 
     expect(game.endedAt).toBeNull();
     expect(game.result).toBeNull();
@@ -219,6 +241,8 @@ describe('toGame', () => {
         blackRatingAfter: 1532,
       }),
       timeControlRow(),
+      WHITE_USER,
+      BLACK_USER,
     );
 
     expect(game.result).toBe('black_win');
@@ -233,25 +257,29 @@ describe('toGame', () => {
     const game = toGame(
       gameRow({ whiteRatingBefore: 1100, blackRatingBefore: 1900 }),
       timeControlRow(),
+      WHITE_USER,
+      BLACK_USER,
     );
 
-    expect(game.white.userId).toBe(WHITE_USER_ID);
+    expect(game.white.id).toBe(WHITE_USER_ID);
     expect(game.white.ratingBefore).toBe(1100);
-    expect(game.black.userId).toBe(BLACK_USER_ID);
+    expect(game.black.id).toBe(BLACK_USER_ID);
     expect(game.black.ratingBefore).toBe(1900);
   });
 
   it('produces something the shared schema accepts', () => {
-    const game = toGame(gameRow(), timeControlRow());
+    const game = toGame(gameRow(), timeControlRow(), WHITE_USER, BLACK_USER);
     const wire = z.encode(GameSchema, game);
 
     expect(GameSchema.safeParse(wire).success).toBe(true);
   });
 
-  it.each([['id'], ['whiteUserId'], ['blackUserId']] as const)(
+  it.each([['id']] as const)(
     'rejects a malformed %s',
     (field) => {
-      expect(() => toGame(gameRow({ [field]: 'nope' }), timeControlRow())).toThrow();
+      expect(() =>
+        toGame(gameRow({ [field]: 'nope' }), timeControlRow(), WHITE_USER, BLACK_USER),
+      ).toThrow();
     },
   );
 });

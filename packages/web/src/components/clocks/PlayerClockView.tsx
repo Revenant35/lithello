@@ -1,11 +1,20 @@
-import type { GameClock } from '@lithello/shared';
 import { ActiveClockView } from './ActiveClockView';
 import { IdleClockView } from './IdleClockView';
 
-export function PlayerClockView({ clock }: { clock: GameClock }) {
-  if (clock.kind === 'active') {
-    return <ActiveClockView expiresAt={clock.expiresAt} />;
+/**
+ * `expiresAt` is set only for the side on the clock. The idle side shows its
+ * stored remaining time, which does not tick.
+ */
+export function PlayerClockView({
+  remainingMs,
+  expiresAt,
+}: {
+  remainingMs: number;
+  expiresAt?: Date;
+}) {
+  if (expiresAt) {
+    return <ActiveClockView expiresAt={expiresAt} />;
   }
 
-  return <IdleClockView clockTimeMilliseconds={clock.clockTimeMilliseconds} />;
+  return <IdleClockView clockTimeMilliseconds={remainingMs} />;
 }

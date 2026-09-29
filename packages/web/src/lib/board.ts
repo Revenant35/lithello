@@ -1,7 +1,8 @@
-import { BOARD_SIZE, type BoardLocation } from '@lithello/shared';
+import { BOARD_SQUARES, type Square } from '@lithello/shared';
 
-// Board labels are the client-side source of the board's dimensions, so the
-// `satisfies` clauses keep them pinned to the shared size.
+export const BOARD_SIZE = 8;
+
+// Pins the label arrays to the board the engine actually uses.
 type BoardLabels = { length: typeof BOARD_SIZE };
 
 export const FILES = [
@@ -14,6 +15,12 @@ export const FILES = [
   'g',
   'h',
 ] as const satisfies BoardLabels;
+
+/**
+ * Ranks as they are drawn, top to bottom. Squares are numbered from rank 1
+ * upward (square 0 is a1), so the display order is the reverse of the
+ * numbering and `squareAt` does the flip.
+ */
 export const RANKS = [
   '8',
   '7',
@@ -25,6 +32,12 @@ export const RANKS = [
   '1',
 ] as const satisfies BoardLabels;
 
-export function formatBoardLocation(location: BoardLocation): string {
-  return `${FILES[location.col]}${RANKS[location.row]}`.toUpperCase();
+/** The square drawn at a grid position, with row 0 being the top rank. */
+export function squareAt(row: number, col: number): Square {
+  return (BOARD_SIZE - 1 - row) * BOARD_SIZE + col;
+}
+
+// A mismatch here would silently draw the wrong board.
+if (BOARD_SIZE * BOARD_SIZE !== BOARD_SQUARES) {
+  throw new Error('Board labels do not match the shared board size');
 }

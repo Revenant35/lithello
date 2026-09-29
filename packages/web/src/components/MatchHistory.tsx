@@ -1,14 +1,30 @@
 import { Link } from 'react-router';
 import { ArrowUpRight, History } from 'lucide-react';
-import type { GameSummary } from '@lithello/shared';
+import {
+  type Game,
+  getRatingDelta,
+  type PlayerColor,
+  type UserID,
+} from '@lithello/shared';
 
-function getOutcome(summary: GameSummary): 'win' | 'loss' | 'draw' {
-  if (summary.result === 'draw') {
+function getViewerSeat(game: Game, viewerId: UserID) {
+  return game.white.id === viewerId ? game.white : game.black;
+}
+
+function getOutcome(
+  game: Game,
+  viewerColor: PlayerColor,
+): 'win' | 'loss' | 'draw' | null {
+  if (game.result === null) {
+    return null;
+  }
+
+  if (game.result === 'draw') {
     return 'draw';
   }
 
-  const winnerColor = summary.result === 'white_win' ? 'w' : 'b';
-  return summary.viewerColor === winnerColor ? 'win' : 'loss';
+  const winnerColor = game.result === 'white_win' ? 'w' : 'b';
+  return viewerColor === winnerColor ? 'win' : 'loss';
 }
 
 const OUTCOME_COPY: Record<'win' | 'loss' | 'draw', string> = {
@@ -23,7 +39,21 @@ const OUTCOME_CLASS: Record<'win' | 'loss' | 'draw', string> = {
   draw: 'result-draw',
 };
 
-export function MatchHistory({ games }: { games: readonly GameSummary[] }) {
+function formatRatingDelta(delta: number | null): string | null {
+  if (delta === null || delta === 0) {
+    return null;
+  }
+
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
+export function MatchHistory({
+  games,
+  viewerId,
+}: {
+  games: readonly Game[];
+  viewerId: UserID;
+}) {
   if (games.length === 0) {
     return (
       <div className="empty-history">
@@ -42,27 +72,36 @@ export function MatchHistory({ games }: { games: readonly GameSummary[] }) {
   return (
     <ol className="flex flex-col gap-2">
       {games.map((game) => {
-        const outcome = getOutcome(game);
+        const viewer = getViewerSeat(game, viewerId);
+        const opponent = viewer === game.white ? game.black : game.white;
+        const outcome = getOutcome(game, viewer.color);
+        const ratingDelta = formatRatingDelta(getRatingDelta(viewer));
 
         return (
           <li key={game.id}>
             <Link to={`/game/${game.id}`} className="match-link">
               <span className="user-avatar" aria-hidden="true">
-                {game.opponent.name.slice(0, 1).toUpperCase()}
+                {opponent.name.slice(0, 1).toUpperCase()}
               </span>
               <span className="match-opponent">
-                <strong>vs. {game.opponent.name}</strong>
+                <strong>vs. {opponent.name}</strong>
                 <span>
-                  {game.endedAt.toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  {(game.endedAt ?? game.createdAt).toLocaleDateString(
+                    undefined,
+                    { month: 'short', day: 'numeric', year: 'numeric' },
+                  )}
                 </span>
               </span>
               <span className="flex items-center gap-3">
-                <span className={`result-tag ${OUTCOME_CLASS[outcome]}`}>
-                  {OUTCOME_COPY[outcome]}
+                {ratingDelta && (
+                  <span className="font-mono text-xs text-parchment-500">
+                    {ratingDelta}
+                  </span>
+                )}
+                <span
+                  className={`result-tag ${outcome ? OUTCOME_CLASS[outcome] : ''}`}
+                >
+                  {outcome ? OUTCOME_COPY[outcome] : 'In progress'}
                 </span>
                 <ArrowUpRight
                   size={16}

@@ -1,39 +1,33 @@
 import { Fragment } from 'react';
-import type { Board, BoardLocation } from '@lithello/shared';
-import { FILES, RANKS } from '../lib/board';
-
-function locationMatches(a: BoardLocation, b: BoardLocation) {
-  return a.row === b.row && a.col === b.col;
-}
+import { type GameBoard as Board, getSquareColor, type Square } from '@lithello/shared';
+import { FILES, RANKS, squareAt } from '../lib/board';
 
 export function GameBoard({
   board,
-  possibleMoves,
+  legalMoves,
   onMove,
 }: {
   board: Board;
-  possibleMoves: readonly BoardLocation[];
-  onMove: (location: BoardLocation) => void;
+  legalMoves: readonly Square[];
+  onMove: (square: Square) => void;
 }) {
   return (
     <fieldset aria-label="Othello board" className="game-board">
       {RANKS.map((rank, rowIndex) => (
         <Fragment key={rank}>
           {FILES.map((file, colIndex) => {
-            const location: BoardLocation = { row: rowIndex, col: colIndex };
+            const square = squareAt(rowIndex, colIndex);
             const coordinate = `${file}${rank}`;
-            const color = board[rowIndex]?.[colIndex] ?? null;
-            const isPossibleMove =
-              color === null &&
-              possibleMoves.some((m) => locationMatches(m, location));
+            const color = getSquareColor(board, square);
+            const isLegalMove = color === null && legalMoves.includes(square);
 
             return (
               <button
                 type="button"
                 key={coordinate}
-                disabled={!isPossibleMove}
-                aria-label={`${coordinate.toUpperCase()}, ${color === 'w' ? 'white' : color === 'b' ? 'black' : isPossibleMove ? 'possible move' : 'empty'}`}
-                onClick={() => onMove(location)}
+                disabled={!isLegalMove}
+                aria-label={`${coordinate.toUpperCase()}, ${color === 'w' ? 'white' : color === 'b' ? 'black' : isLegalMove ? 'possible move' : 'empty'}`}
+                onClick={() => onMove(square)}
                 className="board-square"
               >
                 {colIndex === 0 && (
@@ -55,7 +49,7 @@ export function GameBoard({
                 {color && (
                   <span className={`disc disc-${color}`} aria-hidden="true" />
                 )}
-                {isPossibleMove && (
+                {isLegalMove && (
                   <span className="legal-move" aria-hidden="true" />
                 )}
               </button>

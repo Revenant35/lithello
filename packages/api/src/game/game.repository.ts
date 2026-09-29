@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { asc, desc, eq, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type {
   Game,
   GameBoard,
@@ -22,6 +23,7 @@ import {
   gameMessage,
   gameMove,
   gameTimeControl,
+  user,
 } from '../database/schema/index.ts';
 import {
   toGame,
@@ -29,6 +31,11 @@ import {
   toGameMove,
   toGameTimeControl,
 } from './game.mapper.ts';
+
+// A game references `user` twice, so each seat needs its own alias to be
+// joined in the same query.
+const whiteUser = alias(user, 'white_user');
+const blackUser = alias(user, 'black_user');
 
 /**
  * CRUD over the game tables. Deliberately thin: no rules, no clock arithmetic,
@@ -43,6 +50,8 @@ export class GameRepository {
       .select()
       .from(game)
       .innerJoin(gameTimeControl, eq(game.timeControlId, gameTimeControl.id))
+      .innerJoin(whiteUser, eq(game.whiteUserId, whiteUser.id))
+      .innerJoin(blackUser, eq(game.blackUserId, blackUser.id))
       .where(eq(game.id, args.id))
       .limit(1);
 
@@ -50,7 +59,12 @@ export class GameRepository {
       return null;
     }
 
-    return toGame(row.game, row.game_time_control);
+    return toGame(
+      row.game,
+      row.game_time_control,
+      row.white_user,
+      row.black_user,
+    );
   }
 
   /** Games the user played either side of, newest first. */
@@ -65,12 +79,16 @@ export class GameRepository {
       .select()
       .from(game)
       .innerJoin(gameTimeControl, eq(game.timeControlId, gameTimeControl.id))
+      .innerJoin(whiteUser, eq(game.whiteUserId, whiteUser.id))
+      .innerJoin(blackUser, eq(game.blackUserId, blackUser.id))
       .where(or(eq(game.whiteUserId, userId), eq(game.blackUserId, userId)))
       .orderBy(desc(game.createdAt))
       .limit(limit)
       .offset(offset);
 
-    return rows.map((row) => toGame(row.game, row.game_time_control));
+    return rows.map((row) =>
+      toGame(row.game, row.game_time_control, row.white_user, row.black_user),
+    );
   }
 
   async getGameMoves(args: { gameId: GameID }): Promise<GameMove[]> {

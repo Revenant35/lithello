@@ -65,15 +65,15 @@ function makeGame(overrides: Partial<Game> = {}): Game {
     id: GAME_ID,
     timeControl: TIME_CONTROL,
     white: {
-      gameId: GAME_ID,
-      userId: WHITE_ID,
+      id: WHITE_ID,
+      name: 'White',
       color: 'w',
       ratingBefore: 1500,
       ratingAfter: null,
     },
     black: {
-      gameId: GAME_ID,
-      userId: BLACK_ID,
+      id: BLACK_ID,
+      name: 'Black',
       color: 'b',
       ratingBefore: 1520,
       ratingAfter: null,
@@ -177,13 +177,26 @@ describe('GameService', () => {
   });
 
   describe('getSession', () => {
-    it('assembles the game, both players, moves and messages', async () => {
+    it('assembles the game with its moves and messages', async () => {
       const session = await service.getSession({ gameId: GAME_ID });
 
-      expect(session.white).toEqual(WHITE);
-      expect(session.black).toEqual(BLACK);
+      expect(session.game.id).toBe(GAME_ID);
       expect(session.moves).toHaveLength(1);
       expect(session.messages).toEqual([]);
+    });
+
+    it('carries both seats, names included, on the game itself', async () => {
+      const session = await service.getSession({ gameId: GAME_ID });
+
+      expect(session.game.white.id).toBe(WHITE_ID);
+      expect(session.game.white.name).toBe('White');
+      expect(session.game.black.id).toBe(BLACK_ID);
+    });
+
+    it('does not load players separately - the join already has them', async () => {
+      await service.getSession({ gameId: GAME_ID });
+
+      expect(players.getPlayer).not.toHaveBeenCalled();
     });
 
     it('throws when the game does not exist', async () => {
@@ -194,16 +207,29 @@ describe('GameService', () => {
       );
     });
 
-    it('throws when a seated user has no player record', async () => {
-      players.getPlayer.mockResolvedValue(null);
+    it('throws when the game does not exist, without touching moves', async () => {
+      games.getGame.mockResolvedValue(null);
 
       await expect(service.getSession({ gameId: GAME_ID })).rejects.toThrow(
-        PlayerNotFoundError,
+        GameNotFoundError,
       );
     });
   });
 
   describe('createGame', () => {
+    it('throws when a user has no player record to take a rating from', async () => {
+      players.getPlayer.mockResolvedValue(null);
+
+      await expect(
+        service.createGame({
+          whiteUserId: WHITE_ID,
+          blackUserId: BLACK_ID,
+          timeControlId: TIME_CONTROL_ID,
+          isRated: true,
+        }),
+      ).rejects.toThrow(PlayerNotFoundError);
+    });
+
     it('refuses to seat the same user twice', async () => {
       await expect(
         service.createGame({

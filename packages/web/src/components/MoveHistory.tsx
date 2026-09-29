@@ -1,31 +1,32 @@
 import { useRef } from 'react';
 import { Flag } from 'lucide-react';
-import type { GameAction } from '@lithello/shared';
-import { formatBoardLocation } from '../lib/board';
+import { formatSquare, type GameMove } from '@lithello/shared';
 
-function formatAction(action: GameAction | undefined) {
-  if (!action) {
+function formatMove(move: GameMove | undefined) {
+  if (!move) {
     return null;
   }
 
-  return action.kind === 'pass' ? 'Pass' : formatBoardLocation(action.location);
+  return move.square === null ? 'Pass' : formatSquare(move.square).toUpperCase();
 }
 
 export function MoveHistory({
   moves,
   onResign,
 }: {
-  moves: readonly GameAction[];
+  moves: readonly GameMove[];
   onResign?: () => void;
 }) {
   const resignDialog = useRef<HTMLDialogElement>(null);
-  const turns = Array.from(
-    { length: Math.ceil(moves.length / 2) },
-    (_, index) => ({
-      black: moves[index * 2],
-      white: moves[index * 2 + 1],
-    }),
-  );
+
+  // Ply 0 is the opening position rather than a move, and black owns the odd
+  // plies, so turn n holds plies 2n-1 and 2n.
+  const byPly = new Map(moves.filter((move) => move.ply > 0).map((move) => [move.ply, move]));
+  const lastPly = Math.max(0, ...byPly.keys());
+  const turns = Array.from({ length: Math.ceil(lastPly / 2) }, (_, index) => ({
+    black: byPly.get(index * 2 + 1),
+    white: byPly.get(index * 2 + 2),
+  }));
 
   return (
     <section
@@ -36,7 +37,7 @@ export function MoveHistory({
         <h2 className="flex items-center justify-between px-5 pt-5 pb-4 text-sm font-semibold text-parchment-50">
           The moves so far{' '}
           <span className="text-xs font-normal text-parchment-500">
-            {moves.length}
+            {byPly.size}
           </span>
         </h2>
         <div
@@ -65,17 +66,17 @@ export function MoveHistory({
               <span className="text-parchment-500">{index + 1}.</span>
               <span
                 className={
-                  turn.black?.kind === 'pass' ? 'text-parchment-500' : undefined
+                  turn.black?.square === null ? 'text-parchment-500' : undefined
                 }
               >
-                {formatAction(turn.black)}
+                {formatMove(turn.black)}
               </span>
               <span
                 className={
-                  turn.white?.kind === 'pass' ? 'text-parchment-500' : undefined
+                  turn.white?.square === null ? 'text-parchment-500' : undefined
                 }
               >
-                {formatAction(turn.white)}
+                {formatMove(turn.white)}
               </span>
             </li>
           ))}

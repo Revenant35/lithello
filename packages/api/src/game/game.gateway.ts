@@ -94,8 +94,8 @@ export class GameGateway
         const session = await this.game.getSession({ gameId: gameId.data });
 
         if (
-          result.user.id !== session.game.white.userId &&
-          result.user.id !== session.game.black.userId
+          result.user.id !== session.game.white.id &&
+          result.user.id !== session.game.black.id
         ) {
           return next(new UnauthorizedException());
         }

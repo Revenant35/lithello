@@ -3,12 +3,20 @@ import { Link, Navigate, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
 import {
-  GameIDSchema,
-  GameStateSchema,
-  type BoardLocation,
-  type GameState,
   type ClientToServerGameEvents,
+  GameIDSchema,
+  type GameSession,
+  GameSessionSchema,
+  getBoardScore,
+  getColorForPly,
+  getCurrentBoard,
+  getGameClocks,
+  getLastMove,
+  getLegalMoves,
+  getTurnDeadline,
+  type PlayerColor,
   type ServerToClientGameEvents,
+  type Square,
 } from '@lithello/shared';
 import { GameBoard } from '../components/GameBoard';
 import { AppShell } from '../components/AppShell';
@@ -20,10 +28,12 @@ import { authClient } from '../lib/auth-client';
 
 const GAME_SOCKET_URL = `${import.meta.env.VITE_API_URL}/game`;
 
+const NO_MOVES: readonly Square[] = [];
+
 export function GameView() {
   const { gameId } = useParams<{ gameId: string }>();
-  const { data: session } = authClient.useSession();
-  const [game, setGame] = useState<GameState | null>(null);
+  const { data: authSession } = authClient.useSession();
+  const [session, setSession] = useState<GameSession | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
   const socketRef = useRef<Socket<
     ServerToClientGameEvents,
@@ -46,10 +56,12 @@ export function GameView() {
 
     socket.on('connect_error', () => setConnectFailed(true));
 
-    socket.on('state', (data: unknown) => {
-      const parsed = GameStateSchema.safeParse(data);
+    socket.on('session', (data: unknown) => {
+      // The wire carries bitboards as hex and dates as strings; parsing runs
+      // the codec's decode direction and hands back a usable session.
+      const parsed = GameSessionSchema.safeParse(data);
       if (parsed.success) {
-        setGame(parsed.data);
+        setSession(parsed.data);
       }
     });
 
@@ -63,48 +75,69 @@ export function GameView() {
     return <Navigate to="/home" replace />;
   }
 
-  const playerColor =
-    game && session
-      ? game.white.id === session.user.id
+  const game = session?.game;
+  const isFinished = game?.endedAt != null;
+
+  const viewerColor: PlayerColor | undefined =
+    game && authSession
+      ? game.white.id === authSession.user.id
         ? 'w'
-        : game.black.id === session.user.id
+        : game.black.id === authSession.user.id
           ? 'b'
           : undefined
       : undefined;
 
-  const isPlayerTurn =
-    game?.status === 'active' &&
-    playerColor !== undefined &&
-    game.activePlayer === playerColor;
+  // Everything below the board is derived from the moves rather than sent.
+  const board = session ? getCurrentBoard(session.moves) : null;
+  const score = board ? getBoardScore(board) : null;
+  const lastMove = session ? getLastMove(session.moves) : null;
+  const colorToMove =
+    !isFinished && lastMove ? getColorForPly(lastMove.ply + 1) : undefined;
+  const isViewerTurn =
+    viewerColor !== undefined && colorToMove === viewerColor;
 
-  const possibleMoves =
-    game?.status === 'active' && isPlayerTurn ? game.possibleMoves : [];
+  const legalMoves =
+    board && isViewerTurn && viewerColor
+      ? getLegalMoves(board, viewerColor)
+      : NO_MOVES;
 
-  function handleMove(location: BoardLocation) {
-    if (game?.status === 'active' && isPlayerTurn) {
-      socketRef.current?.emit('move', location);
+  const clocks = session
+    ? getGameClocks(session.moves, session.game.timeControl)
+    : null;
+  const deadline = session ? getTurnDeadline(session) : null;
+
+  function clockProps(color: PlayerColor) {
+    return {
+      remainingMs: color === 'w' ? (clocks?.white ?? 0) : (clocks?.black ?? 0),
+      expiresAt: deadline?.color === color ? deadline.expiresAt : undefined,
+    };
+  }
+
+  function handleMove(square: Square) {
+    if (isViewerTurn) {
+      socketRef.current?.emit('move', square);
     }
   }
 
   function handleResign() {
-    if (game?.status === 'active') {
+    if (!isFinished) {
       socketRef.current?.emit('resign');
     }
   }
 
-  const player = game
-    ? playerColor === 'b'
+  const viewer = game
+    ? viewerColor === 'b'
       ? game.black
       : game.white
     : undefined;
   const opponent = game
-    ? playerColor === 'b'
+    ? viewerColor === 'b'
       ? game.white
       : game.black
     : undefined;
 
-  const bottomColor = playerColor === 'b' ? 'b' : 'w';
-  const topColor = bottomColor === 'b' ? 'w' : 'b';
+  const bottomColor: PlayerColor = viewerColor === 'b' ? 'b' : 'w';
+  const topColor: PlayerColor = bottomColor === 'b' ? 'w' : 'b';
 
   return (
     <AppShell className="game-shell">
@@ -115,14 +148,10 @@ export function GameView() {
         <header className="match-heading">
           <div>
             <p className="eyebrow accent-text">
-              {game?.status === 'active'
-                ? 'Live match'
-                : game?.status === 'finished'
-                  ? 'Final result'
-                  : 'Connecting'}
+              {!session ? 'Connecting' : isFinished ? 'Final result' : 'Live match'}
             </p>
             <h1 className="display-heading">
-              {game?.status === 'finished'
+              {isFinished
                 ? 'That’s a good game.'
                 : 'Make every move count.'}
             </h1>
@@ -133,7 +162,7 @@ export function GameView() {
           </div>
         </header>
 
-        {!game ? (
+        {!session || !game || !board || !score ? (
           <div role="status" className="empty-history">
             <span className="mini-discs mb-4" aria-hidden="true">
               <i />
@@ -154,20 +183,20 @@ export function GameView() {
                     <div>
                       <strong>{opponent.name}</strong>
                       <small>
-                        {topColor === 'b' ? 'Black' : 'White'}
-                        {!opponent.isConnected && ' · Disconnected'}
+                        {topColor === 'b' ? 'Black' : 'White'} ·{' '}
+                        {opponent.ratingBefore}
                       </small>
                     </div>
                   </div>
-                  <PlayerClockView clock={opponent.clock} />
+                  <PlayerClockView {...clockProps(topColor)} />
                 </div>
               )}
               <GameBoard
-                board={game.board}
-                possibleMoves={possibleMoves}
+                board={board}
+                legalMoves={legalMoves}
                 onMove={handleMove}
               />
-              {player && (
+              {viewer && (
                 <div className="player-bar mt-2">
                   <div className="player-identity">
                     <span
@@ -176,56 +205,54 @@ export function GameView() {
                     />
                     <div>
                       <strong>
-                        {player.name}
-                        {playerColor && ' (you)'}
+                        {viewer.name}
+                        {viewerColor && ' (you)'}
                       </strong>
                       <small>
-                        {bottomColor === 'b' ? 'Black' : 'White'}
-                        {!player.isConnected && ' · Disconnected'}
+                        {bottomColor === 'b' ? 'Black' : 'White'} ·{' '}
+                        {viewer.ratingBefore}
                       </small>
                     </div>
                   </div>
-                  <PlayerClockView clock={player.clock} />
+                  <PlayerClockView {...clockProps(bottomColor)} />
                 </div>
               )}
             </div>
 
             <div className="game-sidebar">
-              {game.status === 'active' && (
+              {!isFinished && (
                 <div
                   role="status"
-                  className={`turn-status ${isPlayerTurn ? 'is-your-turn' : ''}`}
+                  className={`turn-status ${isViewerTurn ? 'is-your-turn' : ''}`}
                 >
-                  {isPlayerTurn
+                  {isViewerTurn
                     ? 'Your move. Make it a good one.'
-                    : playerColor
+                    : viewerColor
                       ? 'Your opponent is thinking…'
-                      : `${game.activePlayer === 'b' ? 'Black' : 'White'} to move`}
+                      : `${colorToMove === 'b' ? 'Black' : 'White'} to move`}
                   <p>
-                    {isPlayerTurn
+                    {isViewerTurn
                       ? 'Choose a highlighted square to place your disc.'
                       : 'A little patience is part of the game.'}
                   </p>
                 </div>
               )}
               <GameScoreView
-                blackScore={game.score.black}
-                whiteScore={game.score.white}
-                viewerColor={playerColor}
+                blackScore={score.black}
+                whiteScore={score.white}
+                viewerColor={viewerColor}
               />
-              {game.status === 'finished' && (
+              {isFinished && game.result && game.endReason && (
                 <PostMatchView
                   result={game.result}
                   endReason={game.endReason}
-                  viewerColor={playerColor}
+                  viewerColor={viewerColor}
                 />
               )}
               <MoveHistory
-                moves={game.moveHistory}
+                moves={session.moves}
                 onResign={
-                  game.status === 'active' && playerColor
-                    ? handleResign
-                    : undefined
+                  !isFinished && viewerColor ? handleResign : undefined
                 }
               />
             </div>
