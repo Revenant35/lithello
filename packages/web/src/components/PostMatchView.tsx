@@ -52,10 +52,13 @@ function getOutcomeCopy(args: {
 export function PostMatchView({
   result,
   endReason,
+  score,
   viewerColor,
 }: {
   result: GameResult;
   endReason: GameEndReason;
+  /** Final disc count. */
+  score?: { white: number; black: number };
   viewerColor?: PlayerColor;
 }) {
   const copy = getOutcomeCopy({ result, viewerColor });
@@ -81,6 +84,39 @@ export function PostMatchView({
         <span className="mt-1 block text-sm text-parchment-300">
           {copy.message}
         </span>
+
+        {score && (
+          <p className="mt-3 flex items-center gap-2 text-sm text-parchment-300">
+            <span className="font-mono text-[0.6rem] font-bold tracking-wide text-parchment-500 uppercase">
+              Final score
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="disc disc-b"
+                style={{ width: 11, height: 11 }}
+              />
+              <strong className="text-parchment-50">{score.black}</strong>
+              <span className="sr-only">
+                to black{viewerColor === 'b' && ' (you)'},
+              </span>
+            </span>
+            <span aria-hidden className="text-parchment-500">
+              &ndash;
+            </span>
+            <span className="flex items-center gap-1.5">
+              <strong className="text-parchment-50">{score.white}</strong>
+              <span
+                aria-hidden
+                className="disc disc-w"
+                style={{ width: 11, height: 11 }}
+              />
+              <span className="sr-only">
+                to white{viewerColor === 'w' && ' (you)'}
+              </span>
+            </span>
+          </p>
+        )}
       </div>
 
       <Link to="/home" className="button-primary col-span-2">

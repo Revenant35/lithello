@@ -7,9 +7,9 @@ import {
   GameIDSchema,
   type GameSession,
   GameSessionSchema,
-  getBoardScore,
   getColorForPly,
   getConnectionState,
+  getBoardScore,
   getCurrentBoard,
   getDisplayClocks,
   getLastMove,
@@ -18,11 +18,12 @@ import {
   type PlayerColor,
   type ServerToClientGameEvents,
   type Square,
+  type UserID,
 } from '@lithello/shared';
 import { AbandonNotice } from '../components/AbandonNotice';
 import { GameBoard } from '../components/GameBoard';
+import { GameChat } from '../components/GameChat';
 import { AppShell } from '../components/AppShell';
-import { GameScoreView } from '../components/GameScoreView';
 import { MoveHistory } from '../components/MoveHistory';
 import { PostMatchView } from '../components/PostMatchView';
 import { PlayerClockView } from '../components/clocks/PlayerClockView';
@@ -100,7 +101,6 @@ export function GameView() {
 
   // Everything below the board is derived from the moves rather than sent.
   const board = session ? getCurrentBoard(session.moves) : null;
-  const score = board ? getBoardScore(board) : null;
   const lastMove = session ? getLastMove(session.moves) : null;
   const colorToMove =
     !isFinished && lastMove ? getColorForPly(lastMove.ply + 1) : undefined;
@@ -115,6 +115,15 @@ export function GameView() {
   // Freezes the losing side's clock at the truth once the game has ended,
   // rather than the value from before the turn they never finished.
   const clocks = session ? getDisplayClocks(session) : null;
+
+  // The recorded final position, rather than a rederivation from the moves.
+  const finalScore =
+    game?.finalWhitePieces != null && game.finalBlackPieces != null
+      ? getBoardScore({
+          whitePieces: game.finalWhitePieces,
+          blackPieces: game.finalBlackPieces,
+        })
+      : undefined;
   const deadline = session ? getTurnDeadline(session) : null;
 
   function clockProps(color: PlayerColor) {
@@ -137,6 +146,10 @@ export function GameView() {
     if (!isFinished) {
       socketRef.current?.emit('resign');
     }
+  }
+
+  function handleSendMessage(content: string) {
+    socketRef.current?.emit('send-message', content);
   }
 
   const viewer = game
@@ -181,7 +194,7 @@ export function GameView() {
           </div>
         </header>
 
-        {!session || !game || !board || !score ? (
+        {!session || !game || !board ? (
           <div role="status" className="empty-history">
             <span className="mini-discs mb-4" aria-hidden="true">
               <i />
@@ -270,15 +283,11 @@ export function GameView() {
                   </p>
                 </div>
               )}
-              <GameScoreView
-                blackScore={score.black}
-                whiteScore={score.white}
-                viewerColor={viewerColor}
-              />
               {isFinished && game.result && game.endReason && (
                 <PostMatchView
                   result={game.result}
                   endReason={game.endReason}
+                  score={finalScore}
                   viewerColor={viewerColor}
                 />
               )}
@@ -289,6 +298,14 @@ export function GameView() {
                     ? handleResign
                     : undefined
                 }
+              />
+              {/* Only the two players may post; the server rejects anyone else. */}
+              <GameChat
+                messages={session.messages}
+                white={game.white}
+                black={game.black}
+                viewerId={authSession?.user.id as UserID | undefined}
+                onSend={viewerColor ? handleSendMessage : undefined}
               />
             </div>
           </div>

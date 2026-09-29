@@ -1213,51 +1213,6 @@
   .turn-status.is-your-turn p {
     color: #c1ceb3;
   }
-  .score-card {
-    padding: 20px;
-    border: 1px solid #dedfd5;
-    border-radius: 9px;
-    background: #fffef9;
-  }
-  .score-label {
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #5d6956;
-    font-weight: 650;
-  }
-  .score-values {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin-top: 17px;
-  }
-  .score-values > div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .score-values > div + div {
-    border-left: 1px solid #dedfd5;
-    padding-left: 16px;
-    margin-left: 16px;
-  }
-  .score-values dt {
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .score-values dd {
-    font-size: 30px;
-    letter-spacing: -1px;
-    font-variant-numeric: tabular-nums;
-  }
-  .score-disc {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-  }
   .score-meter {
     display: flex;
     margin-top: 16px;
