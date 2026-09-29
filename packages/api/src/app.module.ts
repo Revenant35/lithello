@@ -8,6 +8,7 @@ import { RedisModule } from './redis/redis.module.ts';
 import { PresenceModule } from './presence/presence.module.ts';
 import { DatabaseModule } from './database/database.module.js';
 import { AuthModule } from './auth/auth.module.ts';
+import { PlayerModule } from './player/player.module.ts';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuthModule } from './auth/auth.module.ts';
     PresenceModule,
     DatabaseModule,
     AuthModule,
+    PlayerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
