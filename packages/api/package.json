@@ -15,9 +15,11 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "oxlint --type-aware src/ test/",
-    "migrate": "node database/migrate.ts latest",
-    "migrate:up": "node database/migrate.ts up",
-    "migrate:down": "node database/migrate.ts down",
+    "db:auth-generate": "better-auth generate --config database/auth.ts --output src/database/schema/auth.schema.ts -y && node database/patch-auth-schema.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
@@ -25,6 +27,7 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.6",
     "@lithello/shared": "workspace:*",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.1",
@@ -37,8 +40,7 @@
     "@thallesp/nestjs-better-auth": "^2.8.0",
     "better-auth": "^1.7.6",
     "dotenv": "^18.0.3",
-    "kysely": "^0.29.6",
-    "kysely-postgres-js": "^5.0.0",
+    "drizzle-orm": "^0.45.3",
     "neverthrow": "^8.2.0",
     "postgres": "^3.4.9",
     "redis": "^6.2.1",
@@ -48,6 +50,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
     "@nestjs/cli": "^12.0.0",
     "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
@@ -56,6 +59,7 @@
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
+    "drizzle-kit": "^0.31.11",
     "oxlint-tsgolint": "^7.0.2001",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",

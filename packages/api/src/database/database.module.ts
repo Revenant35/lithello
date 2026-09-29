@@ -1,16 +1,14 @@
 import { Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import type { Sql } from 'postgres';
-import { KYSELY, provideKysely } from './kysely.provider.ts';
-import { providePostgresDialect } from './postgres-dialect.provider.ts';
+import { DRIZZLE, provideDrizzle } from './drizzle.provider.ts';
 import { POSTGRES_CLIENT, providePostgresClient } from './postgres.provider.ts';
 
 @Module({
   providers: [
     providePostgresClient(),
-    providePostgresDialect(),
-    provideKysely(),
+    provideDrizzle(),
   ],
-  exports: [KYSELY],
+  exports: [DRIZZLE],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(POSTGRES_CLIENT) private readonly client: Sql) {}
