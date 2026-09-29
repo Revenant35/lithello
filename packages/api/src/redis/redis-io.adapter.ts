@@ -27,8 +27,21 @@ export class RedisIoAdapter extends IoAdapter {
     this.adapterConstructor = createAdapter(pubClient, subClient);
   }
 
+  /**
+   * Nest closes the adapter once per socket server, so this runs more than once.
+   * The references are dropped first and `isOpen` is checked, because closing an
+   * already-closed client throws and surfaces as a shutdown error.
+   */
   override async close(server: Server): Promise<void> {
-    await Promise.all([this.pubClient?.close(), this.subClient?.close()]);
+    const clients = [this.pubClient, this.subClient];
+
+    this.pubClient = undefined;
+    this.subClient = undefined;
+
+    await Promise.all(
+      clients.map((client) => (client?.isOpen === true ? client.close() : null)),
+    );
+
     await super.close(server);
   }
 

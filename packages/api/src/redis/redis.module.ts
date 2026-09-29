@@ -11,6 +11,9 @@ export class RedisModule implements OnApplicationShutdown {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: AppRedisClient) {}
 
   async onApplicationShutdown() {
-    await this.redis.close();
+    // Guarded for the same reason as the io adapter: closing twice throws.
+    if (this.redis.isOpen) {
+      await this.redis.close();
+    }
   }
 }
