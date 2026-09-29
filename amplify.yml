@@ -1,18 +1,19 @@
 version: 1
 applications:
-  - appRoot: packages/web
-    frontend:
+  - frontend:
       phases:
         preBuild:
           commands:
             - corepack enable
-            - corepack prepare --activate
-            - cd ../.. && pnpm install --frozen-lockfile
+            - pnpm install --frozen-lockfile
         build:
           commands:
-            - pnpm --filter @lithello/shared build
-            - pnpm --filter web build
+            - pnpm --filter @lithello/shared build && pnpm --filter web build
       artifacts:
         baseDirectory: dist
         files:
           - '**/*'
+      cache:
+        paths:
+          - $(pnpm store path)
+    appRoot: packages/web
