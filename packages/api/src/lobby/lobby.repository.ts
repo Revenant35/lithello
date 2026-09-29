@@ -9,6 +9,7 @@ import {
   type LobbyMember,
   type OpenLobby,
   type UserID,
+  type LobbySettings,
 } from '@lithello/shared';
 import { err, ok, Result, ResultAsync } from 'neverthrow';
 import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
@@ -124,6 +125,20 @@ export class LobbyRepository {
     }
 
     return ok(result.value);
+  }
+
+  async setSettings(args: {
+    lobbyId: LobbyID;
+    settings: LobbySettings;
+  }): Promise<Result<void, LobbyRepositoryError>> {
+    const { lobbyId, settings } = args;
+
+    return await this.modify({
+      lobbyId,
+      data: settings,
+      path: '$.settings',
+      condition: 'XX',
+    });
   }
 
   async setReadiness(args: {

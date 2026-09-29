@@ -1,6 +1,10 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
-import { GameSchema, type UserID } from '@lithello/shared';
+import {
+  type GameTimeControl,
+  GameSchema,
+  type UserID,
+} from '@lithello/shared';
 import { z } from 'zod';
 import { GameService } from './game.service.ts';
 
@@ -12,6 +16,12 @@ const GameListQuerySchema = z.object({
 @Controller('game')
 export class GameController {
   constructor(private readonly games: GameService) {}
+
+  /** Every configured time control, for choosing one when setting up a game. */
+  @Get('time-controls')
+  async getTimeControls(): Promise<{ timeControls: GameTimeControl[] }> {
+    return { timeControls: await this.games.getTimeControls() };
+  }
 
   /**
    * Games the caller played either side of, newest first.

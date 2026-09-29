@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { UserSchema } from './user.ts';
-import { GameID, GameIDSchema, LobbyIDSchema } from './identifiers.ts';
+import {
+  GameID,
+  GameIDSchema,
+  GameTimeControlIDSchema,
+  LobbyIDSchema,
+} from './identifiers.ts';
 
 export const LobbyMemberSchema = UserSchema.pick({
   id: true,
@@ -11,9 +16,17 @@ export const LobbyMemberSchema = UserSchema.pick({
 });
 export type LobbyMember = z.infer<typeof LobbyMemberSchema>;
 
+/** What the host has chosen for the game this lobby will start. */
+export const LobbySettingsSchema = z.object({
+  timeControlId: GameTimeControlIDSchema,
+  isRated: z.boolean(),
+});
+export type LobbySettings = z.infer<typeof LobbySettingsSchema>;
+
 const BaseLobbySchema = z.object({
   id: LobbyIDSchema,
   host: LobbyMemberSchema,
+  settings: LobbySettingsSchema,
   expiresAt: z.coerce.date(),
 });
 
@@ -41,6 +54,8 @@ export interface ClientToServerLobbyEvents {
   unready: () => void;
   state: () => void;
   leave: () => void;
+  /** Host only; the server ignores it from anyone else. */
+  'set-settings': (settings: LobbySettings) => void;
 }
 
 export interface ServerToClientLobbyEvents {

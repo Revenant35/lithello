@@ -10,6 +10,7 @@ import {
   type GameID,
   type GameTimeControl,
   type Lobby,
+  type LobbySettings,
   type LobbyID,
   LobbyIDSchema,
   type User,
@@ -135,7 +136,16 @@ export class LobbyService {
 
   async createLobby(args: {
     host: User;
-  }): Promise<Result<Lobby, LobbyRepositoryError>> {
+  }): Promise<Result<Lobby, LobbyRepositoryError | LobbyServiceError>> {
+    const timeControl = await this.getDefaultTimeControl();
+
+    if (timeControl === null) {
+      this.logger.error(
+        'Cannot create a lobby: no time controls are configured in the database',
+      );
+      return err(LobbyServiceError.UnknownError);
+    }
+
     const result = await this.repository.create({
       lobby: {
         id: randomUUID() as LobbyID,
@@ -145,6 +155,7 @@ export class LobbyService {
           isReady: false,
           isConnected: false,
         },
+        settings: { timeControlId: timeControl.id, isRated: true },
         expiresAt: new Date(Date.now() + LOBBY_LIFETIME_MS),
         status: 'open',
       },
@@ -178,6 +189,63 @@ export class LobbyService {
     lobbyId: LobbyID;
   }): Promise<Result<Lobby, LobbyRepositoryError>> {
     return this.repository.getRequired(args);
+  }
+
+  /**
+   * Host only. Changing the terms clears both readiness flags, so nobody can
+   * be committed to a game they did not agree to.
+   */
+  async setSettings(args: {
+    lobbyId: LobbyID;
+    userId: UserID;
+    settings: LobbySettings;
+  }): Promise<Result<void, LobbyRepositoryError | LobbyServiceError>> {
+    const { lobbyId, userId, settings } = args;
+
+    const lobbyResult = await this.repository.getRequired({ lobbyId });
+    if (lobbyResult.isErr()) {
+      return err(lobbyResult.error);
+    }
+
+    const lobby = lobbyResult.value;
+
+    if (lobby.status !== 'open' || lobby.host.id !== userId) {
+      return err(LobbyServiceError.UnknownError);
+    }
+
+    const timeControl = await this.getTimeControl(settings.timeControlId);
+
+    if (timeControl === null) {
+      return err(LobbyServiceError.UnknownError);
+    }
+
+    const result = await this.repository.setSettings({ lobbyId, settings });
+    if (result.isErr()) {
+      return result;
+    }
+
+    await this.clearReadiness(lobby);
+
+    this._lobbyUnready$.next({ lobbyId });
+    this._lobbyChanged$.next(lobbyId);
+
+    return ok();
+  }
+
+  private async clearReadiness(lobby: Lobby): Promise<void> {
+    const members = [lobby.host.id, lobby.guest?.id].filter(
+      (id) => id !== undefined,
+    );
+
+    await Promise.all(
+      members.map((userId) =>
+        this.repository.setReadiness({
+          lobbyId: lobby.id,
+          userId,
+          isReady: false,
+        }),
+      ),
+    );
   }
 
   async setReadiness(args: {
@@ -299,25 +367,14 @@ export class LobbyService {
       return;
     }
 
-    const timeControl = await this.getDefaultTimeControl();
-
-    if (timeControl === null) {
-      this.logger.error(
-        'Cannot start a game: no time controls are configured in the database',
-      );
-      return;
-    }
-
     let gameId: GameID;
 
     try {
-      // Unrated until rating calculation exists - marking these rated would
-      // record a rated game whose ratings never move.
       const session = await this.game.createGame({
         whiteUserId: lobby.host.id,
         blackUserId: lobby.guest.id,
-        timeControlId: timeControl.id,
-        isRated: false,
+        timeControlId: lobby.settings.timeControlId,
+        isRated: lobby.settings.isRated,
       });
 
       gameId = session.game.id;
@@ -350,10 +407,15 @@ export class LobbyService {
     return result;
   }
 
-  /**
-   * Lobbies cannot choose a time control yet, so this prefers the default and
-   * otherwise takes whatever is configured.
-   */
+  private async getTimeControl(
+    id: GameTimeControl['id'],
+  ): Promise<GameTimeControl | null> {
+    const timeControls = await this.game.getTimeControls();
+
+    return timeControls.find((candidate) => candidate.id === id) ?? null;
+  }
+
+  /** What a new lobby starts on: the default if configured, else whatever is. */
   private async getDefaultTimeControl(): Promise<GameTimeControl | null> {
     const timeControls = await this.game.getTimeControls();
 

@@ -1,5 +1,6 @@
 import {
   ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
@@ -12,6 +13,7 @@ import { PresenceService } from '../presence/presence.service.ts';
 import { Logger, UseGuards } from '@nestjs/common';
 import {
   LobbyIDSchema,
+  LobbySettingsSchema,
   UserIDSchema,
   type UserID,
   type LobbyID,
@@ -103,6 +105,21 @@ export class LobbyGateway
       const { lobbyId, userId } = this.getSocketData(client);
 
       await this.lobby.setReadiness({ lobbyId, userId, isReady: false });
+    } catch (error) {
+      this.logger.error(error);
+    }
+  }
+
+  @SubscribeMessage('set-settings')
+  async handleSetSettings(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: unknown,
+  ): Promise<void> {
+    try {
+      const { lobbyId, userId } = this.getSocketData(client);
+      const settings = LobbySettingsSchema.parse(body);
+
+      await this.lobby.setSettings({ lobbyId, userId, settings });
     } catch (error) {
       this.logger.error(error);
     }

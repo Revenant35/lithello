@@ -1,4 +1,8 @@
-import { Controller, InternalServerErrorException, Post } from '@nestjs/common';
+import {
+  Controller,
+  InternalServerErrorException,
+  Post,
+} from '@nestjs/common';
 import { LobbyService } from './lobby.service.ts';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import type { LobbyID, UserID } from '@lithello/shared';
