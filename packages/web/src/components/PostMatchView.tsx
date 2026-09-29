@@ -42,8 +42,8 @@ function getOutcomeCopy(args: {
   return viewerColor === winnerColor
     ? { heading: 'You win!', message: 'The board is yours.', outcome: 'win' }
     : {
-        heading: 'You lose',
-        message: 'Your opponent claimed the board.',
+        heading: 'Well played.',
+        message: 'This one goes to your opponent. There’s always a next game.',
         outcome: 'loss',
       };
 }
@@ -64,7 +64,7 @@ export function PostMatchView({
     <section
       aria-labelledby="post-match-heading"
       aria-live="polite"
-      className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-4 rounded-md border border-wood-700 bg-wood-800 p-5 shadow-lg"
+      className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-4 rounded-lg border border-wood-700 bg-wood-800 p-5"
     >
       <OutcomeIcon aria-hidden size={20} className="mt-1 text-brass-400" />
       <div>
@@ -73,7 +73,7 @@ export function PostMatchView({
         </p>
         <h2
           id="post-match-heading"
-          className="text-2xl font-medium text-parchment-50"
+          className="display-heading text-3xl text-parchment-50"
         >
           {copy.heading}
         </h2>
@@ -82,11 +82,8 @@ export function PostMatchView({
         </span>
       </div>
 
-      <Link
-        to="/home"
-        className="col-span-2 flex min-h-11 items-center justify-center rounded border border-wood-600 px-3 py-2 text-sm font-semibold text-parchment-50 transition-colors hover:bg-wood-700"
-      >
-        Return home
+      <Link to="/home" className="button-primary col-span-2">
+        Back to the clubhouse
       </Link>
     </section>
   );

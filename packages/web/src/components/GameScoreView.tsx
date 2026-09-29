@@ -10,42 +10,33 @@ export function GameScoreView({
   viewerColor?: PlayerColor;
 }) {
   return (
-    <section
-      aria-labelledby="game-score-heading"
-      className="grid grid-cols-2 border-y border-wood-700"
-    >
-      <h2 id="game-score-heading" className="sr-only">
-        Score
+    <section aria-labelledby="game-score-heading" className="score-card">
+      <h2 id="game-score-heading" className="score-label">
+        The board, by the numbers
       </h2>
 
-      <dl className="col-span-2 grid grid-cols-2">
-        <div className="flex items-center justify-between border-r border-wood-700 py-4 pr-4">
-          <dt className="flex items-center gap-2 text-sm text-parchment-500">
-            <span
-              aria-hidden
-              className="inline-block aspect-square w-3.5 rounded-full border border-wood-600 bg-wood-950"
-            />
+      <dl className="score-values">
+        <div>
+          <dt>
+            <span aria-hidden className="disc disc-b score-disc" />
             Black
-            {viewerColor === 'b' && (
-              <span className="text-parchment-600">(you)</span>
-            )}
+            {viewerColor === 'b' && <span className="sr-only">(you)</span>}
           </dt>
-          <dd className="font-mono text-lg text-parchment-50">{blackScore}</dd>
+          <dd>{blackScore}</dd>
         </div>
-        <div className="flex items-center justify-between py-4 pl-4">
-          <dt className="flex items-center gap-2 text-sm text-parchment-500">
-            <span
-              aria-hidden
-              className="inline-block aspect-square w-3.5 rounded-full bg-parchment-50"
-            />
+        <div>
+          <dt>
+            <span aria-hidden className="disc disc-w score-disc" />
             White
-            {viewerColor === 'w' && (
-              <span className="text-parchment-600">(you)</span>
-            )}
+            {viewerColor === 'w' && <span className="sr-only">(you)</span>}
           </dt>
-          <dd className="font-mono text-lg text-parchment-50">{whiteScore}</dd>
+          <dd>{whiteScore}</dd>
         </div>
       </dl>
+      <div className="score-meter" aria-hidden="true">
+        <span style={{ flex: blackScore }} />
+        <span style={{ flex: whiteScore }} />
+      </div>
     </section>
   );
 }

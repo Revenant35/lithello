@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { ArrowUpRight, History } from 'lucide-react';
 import type { GameSummary } from '@lithello/shared';
 
 function getOutcome(summary: GameSummary): 'win' | 'loss' | 'draw' {
@@ -17,17 +18,24 @@ const OUTCOME_COPY: Record<'win' | 'loss' | 'draw', string> = {
 };
 
 const OUTCOME_CLASS: Record<'win' | 'loss' | 'draw', string> = {
-  win: 'text-moss-500',
-  loss: 'text-ember-500',
-  draw: 'text-parchment-300',
+  win: 'result-win',
+  loss: 'result-loss',
+  draw: 'result-draw',
 };
 
 export function MatchHistory({ games }: { games: readonly GameSummary[] }) {
   if (games.length === 0) {
     return (
-      <p className="text-center text-sm text-parchment-500">
-        No matches played yet
-      </p>
+      <div className="empty-history">
+        <span className="empty-icon">
+          <History size={20} aria-hidden="true" />
+        </span>
+        <h3>Your first rivalry awaits.</h3>
+        <p>
+          No matches just yet. Create a lobby and invite a friend to get your
+          story started.
+        </p>
+      </div>
     );
   }
 
@@ -38,18 +46,29 @@ export function MatchHistory({ games }: { games: readonly GameSummary[] }) {
 
         return (
           <li key={game.id}>
-            <Link
-              to={`/game/${game.id}`}
-              className="flex items-center justify-between rounded-lg border border-wood-700 bg-wood-900 px-4 py-3 transition-colors hover:bg-wood-800"
-            >
-              <span className="text-parchment-50">vs {game.opponent.name}</span>
-              <span className="flex items-center gap-3 text-sm">
-                <span className={`font-semibold ${OUTCOME_CLASS[outcome]}`}>
+            <Link to={`/game/${game.id}`} className="match-link">
+              <span className="user-avatar" aria-hidden="true">
+                {game.opponent.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="match-opponent">
+                <strong>vs. {game.opponent.name}</strong>
+                <span>
+                  {game.endedAt.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </span>
+              </span>
+              <span className="flex items-center gap-3">
+                <span className={`result-tag ${OUTCOME_CLASS[outcome]}`}>
                   {OUTCOME_COPY[outcome]}
                 </span>
-                <span className="text-parchment-500">
-                  {game.endedAt.toLocaleDateString()}
-                </span>
+                <ArrowUpRight
+                  size={16}
+                  aria-hidden="true"
+                  className="text-parchment-500"
+                />
               </span>
             </Link>
           </li>

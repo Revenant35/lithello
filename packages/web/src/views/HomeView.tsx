@@ -1,4 +1,4 @@
-import { LogOut, Plus } from 'lucide-react';
+import { ArrowUpRight, CornerUpLeft, LogOut, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
@@ -8,6 +8,9 @@ import {
   type GameSummary,
 } from '@lithello/shared';
 import { MatchHistory } from '../components/MatchHistory';
+import { AppShell } from '../components/AppShell';
+import { BoardArtwork } from '../components/BoardArtwork';
+import { RulesButton } from '../components/RulesButton';
 import { authClient } from '../lib/auth-client';
 
 const GameHistoryResponseSchema = z.object({
@@ -20,25 +23,41 @@ const NewLobbyResponseSchema = z.object({
 
 export function HomeView() {
   const navigate = useNavigate();
+  const { data: session } = authClient.useSession();
   const [isCreating, setIsCreating] = useState(false);
   const [games, setGames] = useState<GameSummary[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [historyStatus, setHistoryStatus] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading');
+  const [historyAttempt, setHistoryAttempt] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     fetch(`${import.meta.env.VITE_API_URL}/game/history`, {
       credentials: 'include',
+      signal: controller.signal,
     })
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not load matches');
+        return response.json();
+      })
       .then((data: unknown) => {
         const parsed = GameHistoryResponseSchema.safeParse(data);
         if (parsed.success) {
           setGames(parsed.data.games);
+          setHistoryStatus('ready');
+        } else {
+          setHistoryStatus('error');
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        if (!controller.signal.aborted) setHistoryStatus('error');
+      });
+    return () => controller.abort();
+  }, [historyAttempt]);
 
   async function handleCreateLobby() {
     setIsCreating(true);
@@ -96,49 +115,132 @@ export function HomeView() {
   }
 
   return (
-    <div className="flex min-h-svh justify-center bg-wood-950 p-6">
-      <div className="flex w-full max-w-sm flex-col items-center gap-8 pt-16">
-        <div className="flex w-full flex-col items-end gap-2">
+    <AppShell
+      actions={
+        <>
+          <span
+            className="user-avatar"
+            role="img"
+            aria-label={session?.user.name || 'Your profile'}
+          >
+            {session?.user.name.slice(0, 1).toUpperCase()}
+          </span>
           <button
             type="button"
             onClick={handleSignOut}
             disabled={isSigningOut}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-parchment-300 transition-colors hover:enabled:text-parchment-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="text-button"
+            aria-label={isSigningOut ? 'Signing out' : 'Sign out'}
           >
-            <LogOut size={16} />
-            {isSigningOut ? 'Signing out…' : 'Sign out'}
+            <LogOut size={15} />
+            <span className="signout-label">
+              {isSigningOut ? 'Signing out…' : 'Sign out'}
+            </span>
           </button>
-
-          {signOutError && (
-            <p role="alert" className="text-sm text-ember-500">
-              {signOutError}
-            </p>
-          )}
+        </>
+      }
+    >
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow accent-text">THE CLUBHOUSE</span>
+          <h1 className="display-heading">
+            Your move, {session?.user.name.trim().split(/\s+/)[0] || 'friend'}.
+          </h1>
         </div>
-
-        <button
-          type="button"
-          onClick={handleCreateLobby}
-          disabled={isCreating}
-          className="flex items-center gap-2 rounded-lg bg-brass-400 px-4 py-2 font-medium text-wood-950 transition-colors hover:enabled:bg-brass-300 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Plus size={18} />
-          New Lobby
-        </button>
-
-        {createError && (
-          <p role="alert" className="text-sm text-ember-500">
-            {createError}
-          </p>
-        )}
-
-        <div className="flex w-full flex-col gap-3">
-          <h2 className="text-sm font-bold tracking-wide text-parchment-500 uppercase">
-            Recent matches
-          </h2>
-          <MatchHistory games={games} />
-        </div>
+        <p>
+          A familiar game. A fresh challenge.
+          <br />
+          Pull up a chair and make it a good one.
+        </p>
       </div>
-    </div>
+      {signOutError && (
+        <p role="alert" className="error-notice mb-5">
+          {signOutError}
+        </p>
+      )}
+      <section className="hero-card" aria-labelledby="play-heading">
+        <div className="hero-copy">
+          <span className="eyebrow">
+            <span className="status-dot" /> BETTER WITH A FRIEND
+          </span>
+          <h2 id="play-heading">
+            Small board.
+            <br />
+            <em>Big possibilities.</em>
+          </h2>
+          <p>
+            A friendly rivalry is one invite away. Start a private lobby, share
+            the link, and let the good games begin.
+          </p>
+          <button
+            type="button"
+            onClick={handleCreateLobby}
+            disabled={isCreating}
+            className="button-primary"
+          >
+            <Plus size={17} />
+            {isCreating ? 'Setting your table…' : 'Create a lobby'}
+            <ArrowUpRight size={17} />
+          </button>
+        </div>
+        <div className="hero-art">
+          <BoardArtwork compact />
+        </div>
+      </section>
+      {createError && (
+        <p role="alert" className="error-notice mt-4">
+          {createError}
+        </p>
+      )}
+      <div className="dashboard-grid">
+        <section aria-labelledby="history-heading">
+          <div className="section-heading">
+            <h2 id="history-heading">Your recent matches</h2>
+            <span>
+              {games.length > 0
+                ? `${games.length} ${games.length === 1 ? 'match' : 'matches'}`
+                : 'YOUR STORY SO FAR'}
+            </span>
+          </div>
+          {historyStatus === 'loading' ? (
+            <div role="status" className="empty-history">
+              <span className="mini-discs mb-4" aria-hidden="true">
+                <i />
+                <i />
+              </span>
+              <p>Gathering your games…</p>
+            </div>
+          ) : historyStatus === 'error' ? (
+            <div className="empty-history">
+              <h3>Couldn’t load your matches.</h3>
+              <p>Let’s give that another try.</p>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setHistoryStatus('loading');
+                  setHistoryAttempt((attempt) => attempt + 1);
+                }}
+              >
+                Try again <ArrowUpRight size={14} />
+              </button>
+            </div>
+          ) : (
+            <MatchHistory games={games} />
+          )}
+        </section>
+        <aside className="tip-card">
+          <span className="eyebrow">
+            <CornerUpLeft size={14} /> A LITTLE INSIDE KNOWLEDGE
+          </span>
+          <h3>Play the long game.</h3>
+          <p>
+            More discs doesn’t always mean you’re ahead. Claim the corners—they
+            can’t be flipped. Sometimes, less really is more.
+          </p>
+          <RulesButton />
+        </aside>
+      </div>
+    </AppShell>
   );
 }

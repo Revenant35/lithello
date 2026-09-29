@@ -30,11 +30,14 @@ export function MoveHistory({
   return (
     <section
       aria-label="Move history"
-      className="flex max-h-[43rem] min-h-72 flex-col self-stretch overflow-hidden rounded-md border border-wood-700 bg-wood-800"
+      className="flex max-h-[28rem] min-h-64 flex-col self-stretch overflow-hidden rounded-lg border border-wood-700 bg-wood-800"
     >
       <header className="border-b border-wood-700">
-        <h2 className="px-5 pt-5 pb-4 text-xl font-medium text-parchment-50">
-          Moves
+        <h2 className="flex items-center justify-between px-5 pt-5 pb-4 text-sm font-semibold text-parchment-50">
+          The moves so far{' '}
+          <span className="text-xs font-normal text-parchment-500">
+            {moves.length}
+          </span>
         </h2>
         <div
           aria-hidden
@@ -48,7 +51,7 @@ export function MoveHistory({
 
       {turns.length === 0 ? (
         <p className="grid flex-1 place-items-center text-sm text-parchment-500">
-          No moves yet
+          Every great game starts with one move.
         </p>
       ) : (
         <ol className="flex-1 list-none overflow-y-auto">
@@ -57,7 +60,7 @@ export function MoveHistory({
             // oxlint-disable-next-line react/no-array-index-key
             <li
               key={index}
-              className="grid min-h-11 grid-cols-[2.5rem_repeat(2,minmax(0,1fr))] items-center px-5 font-mono text-sm text-parchment-50 even:bg-white/5"
+              className="grid min-h-10 grid-cols-[2.5rem_repeat(2,minmax(0,1fr))] items-center px-5 font-mono text-xs text-parchment-50 even:bg-wood-900/60"
             >
               <span className="text-parchment-500">{index + 1}.</span>
               <span

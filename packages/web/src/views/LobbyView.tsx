@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Copy,
+  Link2,
+  Users,
+  UserRoundPlus,
+} from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { io, type Socket } from 'socket.io-client';
 import {
@@ -9,6 +18,7 @@ import {
   type ServerToClientLobbyEvents,
 } from '@lithello/shared';
 import { LobbyMemberCard } from '../components/LobbyMemberCard';
+import { AppShell } from '../components/AppShell';
 import { authClient } from '../lib/auth-client';
 
 const LOBBY_SOCKET_URL = `${import.meta.env.VITE_API_URL}/lobby`;
@@ -19,6 +29,9 @@ export function LobbyView() {
   const { data: session } = authClient.useSession();
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
+    'idle',
+  );
   const socketRef = useRef<Socket<
     ServerToClientLobbyEvents,
     ClientToServerLobbyEvents
@@ -70,49 +83,155 @@ export function LobbyView() {
           : undefined
       : undefined;
 
+  async function handleCopyInvite() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopyState('copied');
+    } catch {
+      setCopyState('error');
+    }
+  }
+
+  function handleLeave() {
+    socketRef.current?.emit('leave');
+    navigate('/home');
+  }
+
   return (
-    <div className="flex min-h-svh items-center justify-center bg-wood-950 p-6">
-      <div className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-wood-700 bg-wood-800 p-8 shadow-lg">
-        <h1 className="text-center text-2xl font-medium text-parchment-50">
-          Lobby
-        </h1>
-
-        {lobby ? (
-          <div className="flex flex-col gap-3">
-            <LobbyMemberCard member={lobby.host} isHost />
-            {lobby.guest && (
-              <LobbyMemberCard member={lobby.guest} isHost={false} />
-            )}
-          </div>
-        ) : (
-          <p className="text-center text-sm text-parchment-500">
-            Loading lobby…
-          </p>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            disabled={!myMember}
-            onClick={() =>
-              socketRef.current?.emit(myMember?.isReady ? 'unready' : 'ready')
-            }
-            className="rounded-lg bg-brass-400 px-3 py-2 font-medium text-wood-950 transition-colors hover:enabled:bg-brass-300 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {myMember?.isReady ? 'Unready' : 'Ready'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              socketRef.current?.emit('leave');
-              navigate('/home');
-            }}
-            className="rounded-lg border border-wood-600 px-3 py-2 font-medium text-parchment-50 transition-colors hover:bg-wood-700"
-          >
-            Leave
-          </button>
+    <AppShell>
+      <div className="lobby-layout">
+        <button type="button" className="back-link" onClick={handleLeave}>
+          <ArrowLeft size={14} /> Back to the clubhouse
+        </button>
+        <div className="lobby-heading">
+          <span className="eyebrow accent-text">A TABLE FOR TWO</span>
+          <h1 className="display-heading">Good company. Great game.</h1>
+          <p>Invite a friend, get comfortable, and make your move.</p>
         </div>
+        <div className="lobby-grid">
+          <section className="lobby-table" aria-label="Lobby players">
+            <div className="section-heading">
+              <h2>The players</h2>
+              <span>
+                {lobby
+                  ? `${lobby.guest ? 2 : 1} / 2 seats filled`
+                  : 'Connecting…'}
+              </span>
+            </div>
+            {lobby ? (
+              <>
+                <LobbyMemberCard member={lobby.host} isHost />
+                <div className="versus-divider" aria-hidden="true">
+                  vs.
+                </div>
+                {lobby.guest ? (
+                  <LobbyMemberCard member={lobby.guest} isHost={false} />
+                ) : (
+                  <div className="member-card empty-seat">
+                    <span className="user-avatar">
+                      <UserRoundPlus size={19} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="member-name">A seat for your rival</p>
+                      <p className="member-detail">
+                        Waiting for a friend to join…
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div role="status" className="empty-history">
+                <p>Setting the table…</p>
+              </div>
+            )}
+            <div className="lobby-actions">
+              <button
+                type="button"
+                disabled={!myMember}
+                onClick={() =>
+                  socketRef.current?.emit(
+                    myMember?.isReady ? 'unready' : 'ready',
+                  )
+                }
+                className={
+                  myMember?.isReady ? 'button-secondary' : 'button-primary'
+                }
+              >
+                {myMember?.isReady ? (
+                  <>
+                    <Check size={17} /> You’re ready · Undo
+                  </>
+                ) : (
+                  <>
+                    I’m ready to play <ArrowRight size={17} />
+                  </>
+                )}
+              </button>
+              <p className="lobby-help" aria-live="polite">
+                {myMember?.isReady
+                  ? 'All set. The game starts when your opponent is ready.'
+                  : 'The game starts automatically when both players are ready.'}
+              </p>
+              <button
+                type="button"
+                onClick={handleLeave}
+                className="text-button"
+              >
+                Leave lobby
+              </button>
+            </div>
+          </section>
+          <aside className="invite-card">
+            <Link2 size={24} strokeWidth={1.5} aria-hidden="true" />
+            <h2>
+              Good games
+              <br />
+              are worth sharing.
+            </h2>
+            <p>
+              Send this private invite to a friend. All they need is an account
+              and a little competitive spirit.
+            </p>
+            <label htmlFor="invite-url" className="sr-only">
+              Lobby invite link
+            </label>
+            <input
+              id="invite-url"
+              className="invite-url"
+              readOnly
+              value={window.location.href}
+              onFocus={(event) => event.target.select()}
+            />
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={handleCopyInvite}
+            >
+              {copyState === 'copied' ? (
+                <Check size={15} />
+              ) : (
+                <Copy size={15} />
+              )}
+              {copyState === 'copied' ? 'Invite copied!' : 'Copy invite link'}
+            </button>
+            <span
+              role="status"
+              className="mt-3 text-xs leading-5 text-parchment-500"
+            >
+              {copyState === 'error'
+                ? 'Select the link above to copy it manually.'
+                : copyState === 'copied'
+                  ? 'Ready to send to your next rival.'
+                  : ''}
+            </span>
+          </aside>
+        </div>
+        <p className="lobby-footnote">
+          <Users size={14} aria-hidden="true" /> Private lobby · Just you and
+          your opponent
+        </p>
       </div>
-    </div>
+    </AppShell>
   );
 }

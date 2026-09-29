@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useParams } from 'react-router';
+import { Link, Navigate, useParams } from 'react-router';
+import { ArrowLeft } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
 import {
   GameIDSchema,
@@ -10,6 +11,7 @@ import {
   type ServerToClientGameEvents,
 } from '@lithello/shared';
 import { GameBoard } from '../components/GameBoard';
+import { AppShell } from '../components/AppShell';
 import { GameScoreView } from '../components/GameScoreView';
 import { MoveHistory } from '../components/MoveHistory';
 import { PostMatchView } from '../components/PostMatchView';
@@ -101,39 +103,62 @@ export function GameView() {
       : game.black
     : undefined;
 
+  const bottomColor = playerColor === 'b' ? 'b' : 'w';
+  const topColor = bottomColor === 'b' ? 'w' : 'b';
+
   return (
-    <div className="min-h-svh bg-wood-950 p-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex items-end justify-between border-b border-wood-700 pb-4">
+    <AppShell className="game-shell">
+      <div className="mx-auto w-full max-w-[942px]">
+        <Link to="/home" className="back-link">
+          <ArrowLeft size={14} /> The clubhouse
+        </Link>
+        <header className="match-heading">
           <div>
-            <p className="mb-1 font-mono text-xs font-bold tracking-wide text-parchment-500 uppercase">
+            <p className="eyebrow accent-text">
               {game?.status === 'active'
                 ? 'Live match'
                 : game?.status === 'finished'
                   ? 'Final result'
                   : 'Connecting'}
             </p>
-            <h1 className="text-3xl font-medium text-parchment-50">Lithello</h1>
+            <h1 className="display-heading">
+              {game?.status === 'finished'
+                ? 'That’s a good game.'
+                : 'Make every move count.'}
+            </h1>
           </div>
-          <div className="grid justify-items-end gap-1 text-right">
-            <span className="font-mono text-[0.62rem] tracking-wide text-parchment-500 uppercase">
-              Game
-            </span>
-            <code className="max-w-[23rem] truncate text-xs text-parchment-300">
-              {result.data}
-            </code>
+          <div className="match-id">
+            <span>THE MATCH</span>
+            <code title={result.data}>#{result.data.slice(0, 8)}</code>
           </div>
         </header>
 
         {!game ? (
-          <p className="text-center text-sm text-parchment-500">
-            Loading game…
-          </p>
+          <div role="status" className="empty-history">
+            <span className="mini-discs mb-4" aria-hidden="true">
+              <i />
+              <i />
+            </span>
+            <p>Getting the board ready…</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 items-center justify-center gap-8 lg:grid-cols-[minmax(0,43rem)_minmax(17rem,21rem)]">
-            <div className="flex min-w-0 flex-col gap-2">
+          <div className="game-layout">
+            <div className="board-column">
               {opponent && (
-                <div className="flex justify-end">
+                <div className="player-bar">
+                  <div className="player-identity">
+                    <span
+                      className={`disc disc-${topColor} player-disc`}
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <strong>{opponent.name}</strong>
+                      <small>
+                        {topColor === 'b' ? 'Black' : 'White'}
+                        {!opponent.isConnected && ' · Disconnected'}
+                      </small>
+                    </div>
+                  </div>
                   <PlayerClockView clock={opponent.clock} />
                 </div>
               )}
@@ -143,13 +168,46 @@ export function GameView() {
                 onMove={handleMove}
               />
               {player && (
-                <div className="flex justify-end">
+                <div className="player-bar mt-2">
+                  <div className="player-identity">
+                    <span
+                      className={`disc disc-${bottomColor} player-disc`}
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <strong>
+                        {player.name}
+                        {playerColor && ' (you)'}
+                      </strong>
+                      <small>
+                        {bottomColor === 'b' ? 'Black' : 'White'}
+                        {!player.isConnected && ' · Disconnected'}
+                      </small>
+                    </div>
+                  </div>
                   <PlayerClockView clock={player.clock} />
                 </div>
               )}
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="game-sidebar">
+              {game.status === 'active' && (
+                <div
+                  role="status"
+                  className={`turn-status ${isPlayerTurn ? 'is-your-turn' : ''}`}
+                >
+                  {isPlayerTurn
+                    ? 'Your move. Make it a good one.'
+                    : playerColor
+                      ? 'Your opponent is thinking…'
+                      : `${game.activePlayer === 'b' ? 'Black' : 'White'} to move`}
+                  <p>
+                    {isPlayerTurn
+                      ? 'Choose a highlighted square to place your disc.'
+                      : 'A little patience is part of the game.'}
+                  </p>
+                </div>
+              )}
               <GameScoreView
                 blackScore={game.score.black}
                 whiteScore={game.score.white}
@@ -164,12 +222,16 @@ export function GameView() {
               )}
               <MoveHistory
                 moves={game.moveHistory}
-                onResign={game.status === 'active' ? handleResign : undefined}
+                onResign={
+                  game.status === 'active' && playerColor
+                    ? handleResign
+                    : undefined
+                }
               />
             </div>
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }
