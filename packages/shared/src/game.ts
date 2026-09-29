@@ -53,7 +53,7 @@ export const GameMessageSchema = z.object({
 });
 export type GameMessage = z.infer<typeof GameMessageSchema>;
 
-export const PlayerScoreSchema = z.int().min(1).max(64);
+export const PlayerScoreSchema = z.int().min(0).max(64);
 export type PlayerScore = z.infer<typeof PlayerScoreSchema>;
 
 export const GameScoreSchema = z.object({
@@ -103,13 +103,25 @@ export const GameSummarySchema = z.object({
 });
 export type GameSummary = z.infer<typeof GameSummarySchema>;
 
+export const GameSocketErrorSchema = z.object({
+  code: z.enum(['INVALID_PAYLOAD', 'UNAUTHORIZED', 'NOT_FOUND', 'ILLEGAL_MOVE', 'GAME_FINISHED', 'CLOCK_EXPIRED', 'INTERNAL_ERROR']),
+  message: z.string(),
+});
+export type GameSocketError = z.infer<typeof GameSocketErrorSchema>;
+export type GameCommandResult = { ok: true } | { ok: false; error: GameSocketError };
+export type GameCommandAck = (result: GameCommandResult) => void;
+
 export interface ClientToServerGameEvents {
-  'get-state': () => void;
-  move: (move: BoardLocation) => void;
-  resign: () => void;
-  'send-message': (content: GameMessageContent) => void;
+  'get-state': (ack?: GameCommandAck) => void;
+  move: (move: BoardLocation, ack?: GameCommandAck) => void;
+  resign: (ack?: GameCommandAck) => void;
+  'send-message': (content: GameMessageContent, ack?: GameCommandAck) => void;
 }
+
+export type GameSocketOperation = keyof ClientToServerGameEvents | 'connect' | 'state';
+export type GameSocketFailure = { operation: GameSocketOperation; error: GameSocketError };
 
 export interface ServerToClientGameEvents {
   state: (game: GameState) => void;
+  'game-error': (failure: GameSocketFailure) => void;
 }
