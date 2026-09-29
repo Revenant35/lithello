@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { UserSchema } from './user.ts';
-import { type GameID, GameIDSchema, GameSettingsSchema } from './game.ts';
-
-export const LobbyIDSchema = z.uuid().brand('lobby');
-export type LobbyID = z.infer<typeof LobbyIDSchema>;
+import { GameID, GameIDSchema, LobbyIDSchema } from './identifiers.ts';
 
 export const LobbyMemberSchema = UserSchema.pick({
   id: true,
@@ -17,7 +14,6 @@ export type LobbyMember = z.infer<typeof LobbyMemberSchema>;
 const BaseLobbySchema = z.object({
   id: LobbyIDSchema,
   host: LobbyMemberSchema,
-  gameSettings: GameSettingsSchema,
   expiresAt: z.coerce.date(),
 });
 

@@ -1,127 +1,35 @@
 import { z } from 'zod';
-import { UserSchema } from './user.ts';
-import { GameClockSchema } from './game-clock.ts';
-import {
-  BoardLocation,
-  BoardLocationSchema,
-  BoardSchema,
-  PlayerColorSchema,
-} from './game-board.ts';
-
-export const GameIDSchema = z.uuid().brand('game');
-export type GameID = z.infer<typeof GameIDSchema>;
+import { BitboardCodec } from './game-board.ts';
+import { GamePlayerSchema } from './game-player.ts';
+import { GameTimeControlSchema } from './game-time-control.ts';
+import { GameIDSchema } from './identifiers.ts';
 
 export const GameResultSchema = z.enum(['white_win', 'black_win', 'draw']);
 export type GameResult = z.infer<typeof GameResultSchema>;
 
-export const GameSettingsSchema = z.object({});
-export type GameSettings = z.infer<typeof GameSettingsSchema>;
+export const GameEndReasonSchema = z.enum(['normal', 'resignation', 'timeout']);
+export type GameEndReason = z.infer<typeof GameEndReasonSchema>;
 
-export const GameMemberSchema = UserSchema.extend({
-  clock: GameClockSchema,
-  isConnected: z.boolean(),
-});
-export type GameMember = z.infer<typeof GameMemberSchema>;
-
-const BaseGameActionSchema = z.object({
-  playerColor: PlayerColorSchema,
-});
-
-const GameMoveSchema = BaseGameActionSchema.extend({
-  location: BoardLocationSchema,
-});
-export type GameMove = z.infer<typeof GameMoveSchema>;
-
-export const GameActionSchema = z.discriminatedUnion('kind', [
-  GameMoveSchema.extend({
-    kind: z.literal('move'),
-    clockMsRemaining: z.int().nonnegative(),
-  }),
-  BaseGameActionSchema.extend({
-    kind: z.literal('pass'),
-  }),
-]);
-export type GameAction = z.infer<typeof GameActionSchema>;
-
-export const GameMessageContentSchema = z.string().min(1).max(500);
-export type GameMessageContent = z.infer<typeof GameMessageContentSchema>;
-
-export const GameMessageSchema = z.object({
-  user: UserSchema,
-  content: z.string().min(1).max(500),
-  createdAt: z.coerce.date(),
-});
-export type GameMessage = z.infer<typeof GameMessageSchema>;
-
-export const PlayerScoreSchema = z.int().min(0).max(64);
-export type PlayerScore = z.infer<typeof PlayerScoreSchema>;
-
-export const GameScoreSchema = z.object({
-  white: PlayerScoreSchema,
-  black: PlayerScoreSchema,
-});
-export type GameScore = z.infer<typeof GameScoreSchema>;
-
-export const BaseGameStateSchema = z.object({
-  white: GameMemberSchema,
-  black: GameMemberSchema,
-  board: BoardSchema,
-  score: GameScoreSchema,
-  messages: z.array(GameMessageSchema),
-  moveHistory: z.array(GameActionSchema),
-});
-
-export const ActiveGameStateSchema = BaseGameStateSchema.extend({
-  activePlayer: PlayerColorSchema,
-  possibleMoves: z.array(BoardLocationSchema),
-});
-export type ActiveGameState = z.infer<typeof ActiveGameStateSchema>;
-
-export const FinishedGameStateSchema = BaseGameStateSchema.extend({
-  result: GameResultSchema,
-  endReason: z.enum(['normal', 'resignation', 'timeout']),
-  endedAt: z.coerce.date(),
-});
-export type FinishedGameState = z.infer<typeof FinishedGameStateSchema>;
-
-export const GameStateSchema = z.discriminatedUnion('status', [
-  ActiveGameStateSchema.extend({
-    status: z.literal('active'),
-  }),
-  FinishedGameStateSchema.extend({
-    status: z.literal('finished'),
-  }),
-]);
-export type GameState = z.infer<typeof GameStateSchema>;
-
-export const GameSummarySchema = z.object({
+export const GameSchema = z.object({
   id: GameIDSchema,
-  opponent: UserSchema.pick({ id: true, name: true }),
-  viewerColor: PlayerColorSchema,
-  result: GameResultSchema,
-  endedAt: z.coerce.date(),
+  timeControl: GameTimeControlSchema,
+  white: GamePlayerSchema,
+  black: GamePlayerSchema,
+  isRated: z.boolean(),
+  createdAt: z.coerce.date(),
+  startedAt: z.coerce.date().nullable(),
+  endedAt: z.coerce.date().nullable(),
+  result: GameResultSchema.nullable(),
+  endReason: GameEndReasonSchema.nullable(),
+  finalWhitePieces: BitboardCodec.nullable(),
+  finalBlackPieces: BitboardCodec.nullable(),
 });
-export type GameSummary = z.infer<typeof GameSummarySchema>;
+export type Game = z.infer<typeof GameSchema>;
 
-export const GameSocketErrorSchema = z.object({
-  code: z.enum(['INVALID_PAYLOAD', 'UNAUTHORIZED', 'NOT_FOUND', 'ILLEGAL_MOVE', 'GAME_FINISHED', 'CLOCK_EXPIRED', 'INTERNAL_ERROR']),
-  message: z.string(),
-});
-export type GameSocketError = z.infer<typeof GameSocketErrorSchema>;
-export type GameCommandResult = { ok: true } | { ok: false; error: GameSocketError };
-export type GameCommandAck = (result: GameCommandResult) => void;
-
-export interface ClientToServerGameEvents {
-  'get-state': (ack?: GameCommandAck) => void;
-  move: (move: BoardLocation, ack?: GameCommandAck) => void;
-  resign: (ack?: GameCommandAck) => void;
-  'send-message': (content: GameMessageContent, ack?: GameCommandAck) => void;
+export function hasStarted(game: Game): boolean {
+  return game.startedAt !== null;
 }
 
-export type GameSocketOperation = keyof ClientToServerGameEvents | 'connect' | 'state';
-export type GameSocketFailure = { operation: GameSocketOperation; error: GameSocketError };
-
-export interface ServerToClientGameEvents {
-  state: (game: GameState) => void;
-  'game-error': (failure: GameSocketFailure) => void;
+export function hasEnded(game: Game): boolean {
+  return game.endedAt !== null;
 }

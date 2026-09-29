@@ -1,7 +1,5 @@
 import { z } from 'zod';
-
-export const UserIDSchema = z.uuid().brand('user');
-export type UserID = z.infer<typeof UserIDSchema>;
+import { UserIDSchema } from './identifiers.ts';
 
 export const UserSchema = z.object({
   id: UserIDSchema,
