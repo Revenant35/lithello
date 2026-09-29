@@ -1,6 +1,7 @@
 import { INITIAL_BOARD } from './game-board.ts';
 import type { GameMove } from './game-move.ts';
 import {
+  getConnectionState,
   getDisplayClocks,
   type GameSession,
   getTurnDeadline,
@@ -146,5 +147,39 @@ describe('getDisplayClocks', () => {
     });
 
     expect(getDisplayClocks(ended).black).toBe(0);
+  });
+});
+
+describe('getConnectionState', () => {
+  it('reports a live game’s connection state', () => {
+    const live = {
+      ...session(),
+      whiteConnected: true,
+      blackConnected: false,
+      whiteAbandonsAt: null,
+      blackAbandonsAt: new Date('2026-09-29T12:00:30Z'),
+    } as GameSession;
+
+    expect(getConnectionState(live, 'w')).toEqual({
+      isConnected: true,
+      abandonsAt: null,
+    });
+    expect(getConnectionState(live, 'b')).toEqual({
+      isConnected: false,
+      abandonsAt: new Date('2026-09-29T12:00:30Z'),
+    });
+  });
+
+  it('is null once the game has ended, even if a side is away', () => {
+    const finished = {
+      ...session({ endedAt: new Date('2026-09-29T12:30:00Z') }),
+      whiteConnected: false,
+      blackConnected: false,
+      whiteAbandonsAt: null,
+      blackAbandonsAt: null,
+    } as GameSession;
+
+    expect(getConnectionState(finished, 'w')).toBeNull();
+    expect(getConnectionState(finished, 'b')).toBeNull();
   });
 });

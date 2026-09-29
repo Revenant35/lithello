@@ -68,11 +68,21 @@ export function getTurnDeadline(
   };
 }
 
-/** Whether a side is connected, and when they forfeit if they are not. */
+/**
+ * Whether a side is connected, and when they forfeit if they are not.
+ *
+ * Null once the game has ended: nobody can abandon a finished game, and whether
+ * someone still has the page open is not worth reporting - revisiting an old
+ * match should not say your opponent is disconnected.
+ */
 export function getConnectionState(
   session: GameSession,
   color: PlayerColor,
-): { isConnected: boolean; abandonsAt: Date | null } {
+): { isConnected: boolean; abandonsAt: Date | null } | null {
+  if (session.game.endedAt !== null) {
+    return null;
+  }
+
   return color === 'w'
     ? {
         isConnected: session.whiteConnected,

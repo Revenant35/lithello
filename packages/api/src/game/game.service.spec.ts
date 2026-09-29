@@ -608,6 +608,75 @@ describe('GameService', () => {
     });
   });
 
+  describe('when a game concludes', () => {
+    /**
+     * A finished game must leave nothing pending in Redis: an abandon deadline
+     * that outlived its game would be claimed later and try to end it again.
+     */
+    function endedSession() {
+      // publishSession re-reads, so the second read must show the game ended.
+      games.getGame
+        .mockResolvedValueOnce(makeGame())
+        .mockResolvedValue(makeGame({ endedAt: NOW, result: 'black_win' }));
+    }
+
+    it('clears both pending forfeits on resignation', async () => {
+      endedSession();
+
+      await service.resign({ gameId: GAME_ID, userId: WHITE_ID });
+
+      expect(abandonment.clear).toHaveBeenCalledWith(GAME_ID, [
+        WHITE_ID,
+        BLACK_ID,
+      ]);
+    });
+
+    it('clears the clock deadline on resignation', async () => {
+      endedSession();
+
+      await service.resign({ gameId: GAME_ID, userId: WHITE_ID });
+
+      expect(redis.zRem).toHaveBeenCalledWith('game-deadlines', GAME_ID);
+      expect(redis.zAdd).not.toHaveBeenCalled();
+    });
+
+    it('clears both pending forfeits when the clock runs out', async () => {
+      games.getGame
+        .mockResolvedValueOnce(makeGame())
+        .mockResolvedValue(makeGame({ endedAt: NOW, result: 'white_win' }));
+      games.getGameMoves.mockResolvedValue([
+        { ...initialMoves()[0]!, blackTimeMs: 10_000 } as GameMove,
+      ]);
+      redis.claimDueDeadlines.mockResolvedValue([GAME_ID]);
+
+      await service.sweepExpiredClocks();
+
+      expect(abandonment.clear).toHaveBeenCalledWith(GAME_ID, [
+        WHITE_ID,
+        BLACK_ID,
+      ]);
+    });
+
+    it('clears both pending forfeits when a player abandons', async () => {
+      games.getGame
+        .mockResolvedValueOnce(makeGame())
+        .mockResolvedValue(makeGame({ endedAt: NOW, result: 'white_win' }));
+      abandonment.claimDue = vi
+        .fn()
+        .mockResolvedValue([{ gameId: GAME_ID, userId: BLACK_ID }]);
+      abandonment.getConnection = vi
+        .fn()
+        .mockResolvedValue({ isConnected: false, abandonsAt: NOW });
+
+      await service.sweepAbandonedGames();
+
+      expect(abandonment.clear).toHaveBeenCalledWith(GAME_ID, [
+        WHITE_ID,
+        BLACK_ID,
+      ]);
+    });
+  });
+
   describe('sweepAbandonedGames', () => {
     it('forfeits the game for a player whose grace has run out', async () => {
       abandonment.claimDue = vi
