@@ -1,0 +1,20 @@
+# Railway build config. Node must be pinned: the Nixpacks default (18) ships a
+# corepack too old to fetch pnpm 12, and the lockfile is v9.
+[phases.setup]
+nixPkgs = ['nodejs_24']
+
+[phases.install]
+cmds = [
+  'corepack enable',
+  'corepack prepare pnpm@12.6.0 --activate',
+  'pnpm install --frozen-lockfile',
+]
+
+[phases.build]
+cmds = [
+  'pnpm --filter @lithello/shared build',
+  'pnpm --filter api build',
+]
+
+[variables]
+COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
