@@ -67,13 +67,17 @@ export class LobbyService {
     private readonly repository: LobbyRepository,
     private readonly game: GameService,
   ) {
-    this.presence.lobbyConnections$.subscribe((event) => {
+    this.presence.lobbyConnections$.subscribe(async (event) => {
       const { userId, lobbyId, isConnected } = event;
 
-      if (isConnected) {
-        this.onUserConnect({ lobbyId, userId });
-      } else {
-        this.onUserDisconnect({ lobbyId, userId });
+      try {
+        if (isConnected) {
+          await this.onUserConnect({ lobbyId, userId });
+        } else {
+          await this.onUserDisconnect({ lobbyId, userId });
+        }
+      } catch (error) {
+        this.logger.error(error)
       }
     });
   }

@@ -130,7 +130,7 @@ pnpm build                              # every package
 pnpm --filter @lithello/shared test     # engine, rating, session helpers
 pnpm --filter api test                  # mappers, service
 pnpm --filter @lithello/shared typecheck
-pnpm --filter api lint          # currently reports pre-existing lobby issues
+pnpm --filter api lint
 ```
 
 **Vitest does not typecheck.** `vitest run` transpiles and will happily pass a
@@ -179,15 +179,3 @@ packages point `tsBuildInfoFile` inside `dist` to prevent that, but if you see
 Playable end to end: onboarding, lobbies with a host-chosen time control and
 rated flag, live games with clocks, passes, resignation, timeout, disconnect
 forfeits, chat, Elo ratings and match history.
-
-Known gaps:
-
-- `game-deadlines` is not repopulated on a cold start. Redis persists
-  (`appendonly yes`), but a flushed or fresh Redis leaves in-progress games with
-  no clock deadline.
-- Rating updates are not in the same transaction as the game result, so a crash
-  between them leaves `game.*_rating_after` written and `player.rating` stale.
-- No integration tests. The repository and service are covered with mocks, so
-  nothing verifies a write actually satisfies the database constraints.
-- `pnpm --filter api lint` is not clean: three `no-floating-promises` errors and
-  an unused import in `src/lobby/`.

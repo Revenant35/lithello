@@ -11,7 +11,7 @@ import {
   type UserID,
   type LobbySettings,
 } from '@lithello/shared';
-import { err, ok, Result, ResultAsync } from 'neverthrow';
+import { err, ok, Result } from 'neverthrow';
 import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
 import { RedisJSON } from 'redis';
 

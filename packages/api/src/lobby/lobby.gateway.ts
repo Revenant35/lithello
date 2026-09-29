@@ -57,7 +57,9 @@ export class LobbyGateway
     });
 
     this.lobby.lobbyChanged$.subscribe((lobbyId) => {
-      this.sendStateToLobby({ lobbyId });
+      void this.sendStateToLobby({ lobbyId }).catch((error) =>
+        this.logger.error(error),
+      );
     });
 
     this.lobby.gameStarted$.subscribe(({ lobbyId, gameId }) => {
