@@ -38,9 +38,11 @@ export class RedisIoAdapter extends IoAdapter {
     this.pubClient = undefined;
     this.subClient = undefined;
 
-    await Promise.all(
-      clients.map((client) => (client?.isOpen === true ? client.close() : null)),
-    );
+    for (const client of clients) {
+      if (client?.isOpen === true) {
+        await client.close();
+      }
+    }
 
     await super.close(server);
   }
