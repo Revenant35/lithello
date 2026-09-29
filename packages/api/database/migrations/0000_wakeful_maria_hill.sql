@@ -65,7 +65,7 @@ CREATE TABLE "game" (
 	"black_rating_after" smallint,
 	CONSTRAINT "game_players_different" CHECK ("game"."white_user_id" <> "game"."black_user_id"),
 	CONSTRAINT "game_result_valid" CHECK ("game"."result" is null or "game"."result" in ('white_win', 'black_win', 'draw')),
-	CONSTRAINT "game_end_reason_valid" CHECK ("game"."end_reason" is null or "game"."end_reason" in ('normal', 'resignation', 'timeout')),
+	CONSTRAINT "game_end_reason_valid" CHECK ("game"."end_reason" is null or "game"."end_reason" in ('normal', 'resignation', 'timeout', 'abandonment')),
 	CONSTRAINT "game_result_iff_ended" CHECK (("game"."ended_at" is null) = ("game"."result" is null)),
 	CONSTRAINT "game_end_reason_iff_ended" CHECK (("game"."ended_at" is null) = ("game"."end_reason" is null)),
 	CONSTRAINT "game_final_pieces_iff_ended" CHECK (("game"."ended_at" is null) = ("game"."final_white_pieces" is null)),

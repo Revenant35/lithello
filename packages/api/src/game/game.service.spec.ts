@@ -11,6 +11,7 @@ import {
   type UserID,
 } from '@lithello/shared';
 import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
+import { GameAbandonmentService } from './game-abandonment.service.ts';
 import { PlayerRepository } from '../player/player.repository.ts';
 import {
   GameAlreadyEndedError,
@@ -110,6 +111,7 @@ describe('GameService', () => {
   let games: Record<string, ReturnType<typeof vi.fn>>;
   let players: Record<string, ReturnType<typeof vi.fn>>;
   let redis: Record<string, ReturnType<typeof vi.fn>>;
+  let abandonment: Record<string, unknown>;
 
   /** Points the repository mocks at a given game state. */
   function givenSession(args: { game?: Game; moves?: GameMove[] } = {}) {
@@ -151,7 +153,18 @@ describe('GameService', () => {
     redis = {
       zAdd: vi.fn().mockResolvedValue(1),
       zRem: vi.fn().mockResolvedValue(1),
+      zScore: vi.fn().mockResolvedValue(null),
       claimDueDeadlines: vi.fn().mockResolvedValue([]),
+    };
+
+    abandonment = {
+      connectionChanged$: { subscribe: vi.fn() },
+      getConnection: vi
+        .fn()
+        .mockResolvedValue({ isConnected: true, abandonsAt: null }),
+      clear: vi.fn().mockResolvedValue(undefined),
+      release: vi.fn().mockResolvedValue(undefined),
+      claimDue: vi.fn().mockResolvedValue([]),
     };
 
     vi.mocked(isLegalMove).mockReturnValue(true);
@@ -165,6 +178,7 @@ describe('GameService', () => {
         { provide: GameRepository, useValue: games },
         { provide: PlayerRepository, useValue: players },
         { provide: REDIS_CLIENT, useValue: redis },
+        { provide: GameAbandonmentService, useValue: abandonment },
       ],
     }).compile();
 
@@ -184,6 +198,32 @@ describe('GameService', () => {
       expect(session.game.id).toBe(GAME_ID);
       expect(session.moves).toHaveLength(1);
       expect(session.messages).toEqual([]);
+    });
+
+    it('reports both sides connected when presence says so', async () => {
+      const session = await service.getSession({ gameId: GAME_ID });
+
+      expect(session.whiteConnected).toBe(true);
+      expect(session.blackConnected).toBe(true);
+      expect(session.whiteAbandonsAt).toBeNull();
+      expect(session.blackAbandonsAt).toBeNull();
+    });
+
+    it('carries the forfeit deadline for a disconnected side', async () => {
+      const abandonsAt = new Date(NOW.getTime() + 30_000);
+      abandonment.getConnection = vi.fn(
+        async (_gameId: GameID, userId: UserID) =>
+          userId === BLACK_ID
+            ? { isConnected: false, abandonsAt }
+            : { isConnected: true, abandonsAt: null },
+      );
+
+      const session = await service.getSession({ gameId: GAME_ID });
+
+      expect(session.blackConnected).toBe(false);
+      expect(session.blackAbandonsAt).toEqual(abandonsAt);
+      expect(session.whiteConnected).toBe(true);
+      expect(session.whiteAbandonsAt).toBeNull();
     });
 
     it('carries both seats, names included, on the game itself', async () => {
@@ -565,6 +605,66 @@ describe('GameService', () => {
 
       expect(redis.zRem).toHaveBeenCalledWith('game-deadlines', GAME_ID);
       expect(redis.zAdd).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sweepAbandonedGames', () => {
+    it('forfeits the game for a player whose grace has run out', async () => {
+      abandonment.claimDue = vi
+        .fn()
+        .mockResolvedValue([{ gameId: GAME_ID, userId: BLACK_ID }]);
+      abandonment.getConnection = vi.fn().mockResolvedValue({
+        isConnected: false,
+        abandonsAt: new Date(NOW.getTime() - 1_000),
+      });
+
+      await service.sweepAbandonedGames();
+
+      expect(games.finishGame).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: 'white_win',
+          endReason: 'abandonment',
+        }),
+      );
+    });
+
+    /**
+     * claimDue leases by pushing the score forward, so the stored deadline is
+     * in the future immediately after a claim. Trusting the claim - rather than
+     * re-reading the score - is what stops the game being swept forever without
+     * ever ending.
+     */
+    it('forfeits even though the claim left the stored deadline in the future', async () => {
+      abandonment.claimDue = vi
+        .fn()
+        .mockResolvedValue([{ gameId: GAME_ID, userId: BLACK_ID }]);
+      abandonment.getConnection = vi.fn().mockResolvedValue({
+        isConnected: false,
+        abandonsAt: new Date(NOW.getTime() + 10_000),
+      });
+
+      await service.sweepAbandonedGames();
+
+      expect(games.finishGame).toHaveBeenCalledWith(
+        expect.objectContaining({ endReason: 'abandonment' }),
+      );
+    });
+
+    it('releases the claim instead when the player came back', async () => {
+      abandonment.claimDue = vi
+        .fn()
+        .mockResolvedValue([{ gameId: GAME_ID, userId: BLACK_ID }]);
+
+      await service.sweepAbandonedGames();
+
+      expect(games.finishGame).not.toHaveBeenCalled();
+      expect(abandonment.release).toHaveBeenCalledWith(GAME_ID, BLACK_ID);
+    });
+
+    it('does nothing when nothing is due', async () => {
+      await service.sweepAbandonedGames();
+
+      expect(games.getGame).not.toHaveBeenCalled();
     });
   });
 

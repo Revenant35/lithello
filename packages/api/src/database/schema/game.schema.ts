@@ -19,7 +19,12 @@ import { user } from './auth.schema.ts';
 export const GAME_RESULTS = ['white_win', 'black_win', 'draw'] as const;
 export type GameResult = (typeof GAME_RESULTS)[number];
 
-export const GAME_END_REASONS = ['normal', 'resignation', 'timeout'] as const;
+export const GAME_END_REASONS = [
+  'normal',
+  'resignation',
+  'timeout',
+  'abandonment',
+] as const;
 export type GameEndReason = (typeof GAME_END_REASONS)[number];
 
 export const gameTimeControl = pgTable(
@@ -103,7 +108,7 @@ export const game = pgTable(
     ),
     check(
       'game_end_reason_valid',
-      sql`${table.endReason} is null or ${table.endReason} in ('normal', 'resignation', 'timeout')`,
+      sql`${table.endReason} is null or ${table.endReason} in ('normal', 'resignation', 'timeout', 'abandonment')`,
     ),
     check(
       'game_result_iff_ended',

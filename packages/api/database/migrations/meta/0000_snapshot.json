@@ -1,5 +1,5 @@
 {
-  "id": "9f6a2187-ff5b-4feb-9b92-670674a64cdf",
+  "id": "3f1a6600-83c0-4977-912e-13d3df12110d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -569,7 +569,7 @@
         },
         "game_end_reason_valid": {
           "name": "game_end_reason_valid",
-          "value": "\"game\".\"end_reason\" is null or \"game\".\"end_reason\" in ('normal', 'resignation', 'timeout')"
+          "value": "\"game\".\"end_reason\" is null or \"game\".\"end_reason\" in ('normal', 'resignation', 'timeout', 'abandonment')"
         },
         "game_result_iff_ended": {
           "name": "game_result_iff_ended",

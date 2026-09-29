@@ -14,4 +14,9 @@ export class GameTasks {
   async sweepExpiredClocks(): Promise<void> {
     await this.game.sweepExpiredClocks();
   }
+
+  @Cron(CronExpression.EVERY_SECOND, { waitForCompletion: true })
+  async sweepAbandonedGames(): Promise<void> {
+    await this.game.sweepAbandonedGames();
+  }
 }

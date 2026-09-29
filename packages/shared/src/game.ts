@@ -13,7 +13,12 @@ import { GameIDSchema } from './identifiers.ts';
 export const GameResultSchema = z.enum(['white_win', 'black_win', 'draw']);
 export type GameResult = z.infer<typeof GameResultSchema>;
 
-export const GameEndReasonSchema = z.enum(['normal', 'resignation', 'timeout']);
+export const GameEndReasonSchema = z.enum([
+  'normal',
+  'resignation',
+  'timeout',
+  'abandonment',
+]);
 export type GameEndReason = z.infer<typeof GameEndReasonSchema>;
 
 export const GameSchema = z.object({

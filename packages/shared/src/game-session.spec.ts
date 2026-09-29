@@ -1,6 +1,10 @@
 import { INITIAL_BOARD } from './game-board.ts';
 import type { GameMove } from './game-move.ts';
-import { type GameSession, getTurnDeadline } from './game-session.ts';
+import {
+  getDisplayClocks,
+  type GameSession,
+  getTurnDeadline,
+} from './game-session.ts';
 import type { Game } from './game.ts';
 
 const STARTED_AT = new Date('2026-09-29T12:00:00Z');
@@ -99,5 +103,48 @@ describe('getTurnDeadline', () => {
 
   it('is null when there are no moves at all', () => {
     expect(getTurnDeadline(session({ moves: [] }))).toBeNull();
+  });
+});
+
+describe('getDisplayClocks', () => {
+  const T0 = STARTED_AT;
+  const T1 = new Date(T0.getTime() + 10_000);
+
+  it('shows the stored values while the game is live', () => {
+    expect(
+      getDisplayClocks(session({ moves: [move({ blackTimeMs: 280_000 })] })),
+    ).toEqual({ white: 300_000, black: 280_000 });
+  });
+
+  it('charges the side on the clock for the turn they never finished', () => {
+    // Black is to move after ply 0 and the game ends 10s later.
+    const ended = session({ endedAt: T1 });
+
+    expect(getDisplayClocks(ended)).toEqual({
+      white: 300_000,
+      black: 290_000,
+    });
+  });
+
+  it('leaves the idle side untouched', () => {
+    const ended = session({
+      moves: [move(), move({ ply: 1, playedAt: T0, blackTimeMs: 292_000 })],
+      endedAt: T1,
+    });
+
+    // White was to move on ply 2, so only white is charged.
+    expect(getDisplayClocks(ended)).toEqual({
+      white: 290_000,
+      black: 292_000,
+    });
+  });
+
+  it('never goes negative when the game outlived the clock', () => {
+    const ended = session({
+      moves: [move({ blackTimeMs: 3_000 })],
+      endedAt: T1,
+    });
+
+    expect(getDisplayClocks(ended).black).toBe(0);
   });
 });

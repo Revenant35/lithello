@@ -372,6 +372,10 @@ export class LobbyService {
     lobby: Lobby,
     userId: UserID,
   ): Promise<Result<void, LobbyRepositoryError | LobbyServiceError>> {
+    if (lobby.status === 'closed') {
+      return ok();
+    }
+
     if (userId === lobby.host.id) {
       if (lobby.guest !== undefined) {
         const result = await this.repository.promoteGuest({

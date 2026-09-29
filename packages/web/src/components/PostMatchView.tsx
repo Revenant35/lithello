@@ -6,6 +6,7 @@ const REASON_COPY: Record<GameEndReason, string> = {
   normal: 'Final result',
   resignation: 'By resignation',
   timeout: 'By timeout',
+  abandonment: 'By abandonment',
 };
 
 const OUTCOME_ICON = {

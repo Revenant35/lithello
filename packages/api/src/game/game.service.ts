@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { Subject } from 'rxjs';
 import {
   type Game,
@@ -41,9 +41,11 @@ import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
 import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
 import { GameRepository } from './game.repository.ts';
 import { PlayerRepository } from '../player/player.repository.ts';
+import { GameAbandonmentService } from './game-abandonment.service.ts';
 
 /** Deadlines of every in-progress game, scored by when the mover runs out. */
 const GAME_DEADLINES = 'game-deadlines';
+
 
 /** How long a sweeping process holds a claimed deadline before it is retried. */
 const CLAIM_LEASE_MS = 10_000;
@@ -57,7 +59,7 @@ const CLAIM_BATCH_SIZE = 100;
 const GAME_START_DELAY_MS = 5_000;
 
 @Injectable()
-export class GameService {
+export class GameService implements OnModuleInit {
   private readonly logger = new Logger(GameService.name);
 
   private readonly _gameSessionChanged$ = new Subject<GameSession>();
@@ -66,8 +68,18 @@ export class GameService {
   constructor(
     private readonly games: GameRepository,
     private readonly players: PlayerRepository,
+    private readonly abandonment: GameAbandonmentService,
     @Inject(REDIS_CLIENT) private readonly redis: AppRedisClient,
   ) {}
+
+  /** A player arriving or leaving changes the session, so republish it. */
+  onModuleInit(): void {
+    this.abandonment.connectionChanged$.subscribe((event) => {
+      void this.publishSession({ gameId: event.gameId }).catch((error) =>
+        this.logger.error(error),
+      );
+    });
+  }
 
   async getSession(args: { gameId: GameID }): Promise<GameSession> {
     const game = await this.games.getGame({ id: args.gameId });
@@ -77,13 +89,23 @@ export class GameService {
     }
 
     // Both seats arrive on the game itself, names included, so a session is
-    // the game plus its history.
-    const [moves, messages] = await Promise.all([
+    // the game plus its history and who is currently at the board.
+    const [moves, messages, white, black] = await Promise.all([
       this.games.getGameMoves({ gameId: game.id }),
       this.games.getGameMessages({ gameId: game.id }),
+      this.abandonment.getConnection(game.id, game.white.id),
+      this.abandonment.getConnection(game.id, game.black.id),
     ]);
 
-    return { game, moves, messages };
+    return {
+      game,
+      moves,
+      messages,
+      whiteConnected: white.isConnected,
+      blackConnected: black.isConnected,
+      whiteAbandonsAt: white.abandonsAt,
+      blackAbandonsAt: black.abandonsAt,
+    };
   }
 
   async getGames(args: {
@@ -414,6 +436,10 @@ export class GameService {
 
     if (deadline === null) {
       await this.redis.zRem(GAME_DEADLINES, gameId);
+      await this.abandonment.clear(gameId, [
+        session.game.white.id,
+        session.game.black.id,
+      ]);
       return;
     }
 
@@ -442,6 +468,59 @@ export class GameService {
 
     for (const gameId of due) {
       await this.handleClockExpiry(gameId as GameID);
+    }
+  }
+
+  /**
+   * Ends games whose disconnected player has run out of grace. Same claim as
+   * the clock sweep, against its own set.
+   */
+  async sweepAbandonedGames(): Promise<void> {
+    for (const claim of await this.abandonment.claimDue()) {
+      await this.handleAbandonment(claim);
+    }
+  }
+
+  /**
+   * Re-reads before acting: the player may have reconnected, or the game may
+   * have ended on the clock, since the claim.
+   */
+  private async handleAbandonment(args: {
+    gameId: GameID;
+    userId: UserID;
+  }): Promise<void> {
+    const { gameId, userId } = args;
+
+    try {
+      const session = await this.getSession({ gameId });
+      const color = this.getColor(session, userId);
+
+      if (session.game.endedAt !== null || color === null) {
+        await this.abandonment.release(gameId, userId);
+        return;
+      }
+
+      const { isConnected } = await this.abandonment.getConnection(
+        gameId,
+        userId,
+      );
+
+      if (isConnected) {
+        await this.abandonment.release(gameId, userId);
+        return;
+      }
+
+      await this.endGame({
+        session,
+        result: color === 'w' ? 'black_win' : 'white_win',
+        endReason: 'abandonment',
+        finalBoard: getCurrentBoard(session.moves),
+      });
+
+      await this.publishSession({ gameId });
+    } catch (error) {
+      // The lease expires on its own, so a failure here is retried.
+      this.logger.error(error);
     }
   }
 

@@ -20,6 +20,12 @@ export const GameSessionSchema = z.object({
   game: GameSchema,
   moves: z.array(GameMoveSchema),
   messages: z.array(GameMessageSchema),
+  whiteConnected: z.boolean(),
+  blackConnected: z.boolean(),
+  // When a disconnected player forfeits, so the client can count down. Null
+  // while they are connected, or once the game has ended.
+  whiteAbandonsAt: z.coerce.date().nullable(),
+  blackAbandonsAt: z.coerce.date().nullable(),
 });
 export type GameSession = z.infer<typeof GameSessionSchema>;
 
@@ -60,4 +66,48 @@ export function getTurnDeadline(
     color,
     expiresAt: new Date(lastMove.playedAt.getTime() + remaining),
   };
+}
+
+/** Whether a side is connected, and when they forfeit if they are not. */
+export function getConnectionState(
+  session: GameSession,
+  color: PlayerColor,
+): { isConnected: boolean; abandonsAt: Date | null } {
+  return color === 'w'
+    ? {
+        isConnected: session.whiteConnected,
+        abandonsAt: session.whiteAbandonsAt,
+      }
+    : {
+        isConnected: session.blackConnected,
+        abandonsAt: session.blackAbandonsAt,
+      };
+}
+
+/**
+ * Clocks as they should be shown.
+ *
+ * While the game is live these are the stored values, and the side to move
+ * counts down against `getTurnDeadline`. Once it has ended there is no further
+ * move to record the time against, so the side that was on the clock is charged
+ * for the gap between their last move and the end - otherwise the display jumps
+ * back to what they had before the turn they never finished.
+ */
+export function getDisplayClocks(session: GameSession): {
+  white: number;
+  black: number;
+} {
+  const clocks = getGameClocks(session.moves, session.game.timeControl);
+  const { endedAt } = session.game;
+  const lastMove = getLastMove(session.moves);
+
+  if (endedAt === null || lastMove === null) {
+    return clocks;
+  }
+
+  const mover = getColorForPly(lastMove.ply + 1);
+  const key = mover === 'w' ? 'white' : 'black';
+  const elapsed = endedAt.getTime() - lastMove.playedAt.getTime();
+
+  return { ...clocks, [key]: Math.max(0, clocks[key] - elapsed) };
 }

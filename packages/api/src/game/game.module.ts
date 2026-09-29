@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GameController } from './game.controller.ts';
 import { GameGateway } from './game.gateway.ts';
+import { GameAbandonmentService } from './game-abandonment.service.ts';
 import { GameRepository } from './game.repository.ts';
 import { GameService } from './game.service.ts';
 import { GameTasks } from './game.tasks.ts';
@@ -15,6 +16,7 @@ import { RedisModule } from '../redis/redis.module.ts';
   controllers: [GameController],
   providers: [
     GameGateway,
+    GameAbandonmentService,
     GameRepository,
     GameService,
     GameTasks,

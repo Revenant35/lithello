@@ -9,8 +9,9 @@ import {
   GameSessionSchema,
   getBoardScore,
   getColorForPly,
+  getConnectionState,
   getCurrentBoard,
-  getGameClocks,
+  getDisplayClocks,
   getLastMove,
   getLegalMoves,
   getTurnDeadline,
@@ -18,6 +19,7 @@ import {
   type ServerToClientGameEvents,
   type Square,
 } from '@lithello/shared';
+import { AbandonNotice } from '../components/AbandonNotice';
 import { GameBoard } from '../components/GameBoard';
 import { AppShell } from '../components/AppShell';
 import { GameScoreView } from '../components/GameScoreView';
@@ -110,9 +112,9 @@ export function GameView() {
       ? getLegalMoves(board, viewerColor)
       : NO_MOVES;
 
-  const clocks = session
-    ? getGameClocks(session.moves, session.game.timeControl)
-    : null;
+  // Freezes the losing side's clock at the truth once the game has ended,
+  // rather than the value from before the turn they never finished.
+  const clocks = session ? getDisplayClocks(session) : null;
   const deadline = session ? getTurnDeadline(session) : null;
 
   function clockProps(color: PlayerColor) {
@@ -150,6 +152,11 @@ export function GameView() {
 
   const bottomColor: PlayerColor = viewerColor === 'b' ? 'b' : 'w';
   const topColor: PlayerColor = bottomColor === 'b' ? 'w' : 'b';
+
+  const topConnection = session ? getConnectionState(session, topColor) : null;
+  const bottomConnection = session
+    ? getConnectionState(session, bottomColor)
+    : null;
 
   return (
     <AppShell className="game-shell">
@@ -198,6 +205,9 @@ export function GameView() {
                         {topColor === 'b' ? 'Black' : 'White'} ·{' '}
                         {opponent.ratingBefore}
                       </small>
+                      {topConnection && !topConnection.isConnected && (
+                        <AbandonNotice abandonsAt={topConnection.abandonsAt} />
+                      )}
                     </div>
                   </div>
                   <PlayerClockView {...clockProps(topColor)} />
@@ -224,6 +234,11 @@ export function GameView() {
                         {bottomColor === 'b' ? 'Black' : 'White'} ·{' '}
                         {viewer.ratingBefore}
                       </small>
+                      {bottomConnection && !bottomConnection.isConnected && (
+                        <AbandonNotice
+                          abandonsAt={bottomConnection.abandonsAt}
+                        />
+                      )}
                     </div>
                   </div>
                   <PlayerClockView {...clockProps(bottomColor)} />
