@@ -40,4 +40,13 @@
       transform: scale(0.65);
     }
   }
+
+  @keyframes flip-disc {
+    from {
+      transform: rotateY(0deg);
+    }
+    to {
+      transform: rotateY(360deg);
+    }
+  }
 }
