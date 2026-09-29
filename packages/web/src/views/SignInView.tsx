@@ -1,9 +1,11 @@
 import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { authClient } from '../lib/auth-client';
+import { getRedirectPath } from '../lib/redirect';
 
 export function SignInView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export function SignInView() {
       return;
     }
 
-    navigate('/');
+    navigate(getRedirectPath(location.state), { replace: true });
   }
 
   return (
@@ -69,6 +71,7 @@ export function SignInView() {
           Don't have an account?{' '}
           <Link
             to="/signup"
+            state={location.state}
             className="font-medium text-brass-300 hover:underline"
           >
             Sign up
