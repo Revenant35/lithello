@@ -22,6 +22,7 @@ import {
   type Square,
   type UserID,
 } from '@lithello/shared';
+import { z } from 'zod';
 import { AbandonNotice } from '../components/AbandonNotice';
 import { GameBoard } from '../components/GameBoard';
 import { GameChat } from '../components/GameChat';
@@ -37,15 +38,31 @@ const GAME_SOCKET_URL = `${import.meta.env.VITE_API_URL}/game`;
 
 const NO_MOVES: readonly Square[] = [];
 
+/**
+ * The gateway's exception filters emit on Nest's built-in `exception` event,
+ * which deliberately sits outside ServerToClientGameEvents. Widening the socket
+ * type here keeps the listener type-safe without changing the shared contract.
+ */
+type GameSocket = Socket<
+  ServerToClientGameEvents & { exception: (error: unknown) => void },
+  ClientToServerGameEvents
+>;
+
+const SocketErrorSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+});
+
+/** How long a rejection stays on screen before it stops being useful. */
+const ERROR_VISIBLE_MS = 4_000;
+
 export function GameView() {
   const { gameId } = useParams<{ gameId: string }>();
   const { data: authSession } = authClient.useSession();
   const [session, setSession] = useState<GameSession | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
-  const socketRef = useRef<Socket<
-    ServerToClientGameEvents,
-    ClientToServerGameEvents
-  > | null>(null);
+  const [socketError, setSocketError] = useState<string | null>(null);
+  const socketRef = useRef<GameSocket | null>(null);
 
   const result = GameIDSchema.safeParse(gameId);
 
@@ -61,20 +78,41 @@ export function GameView() {
   const hasStarted = game?.startedAt != null && secondsUntilStart === 0;
 
   useEffect(() => {
+    if (socketError === null) {
+      return;
+    }
+
+    const timer = setTimeout(() => setSocketError(null), ERROR_VISIBLE_MS);
+
+    return () => clearTimeout(timer);
+  }, [socketError]);
+
+  useEffect(() => {
     if (!result.success) {
       return;
     }
 
-    const socket: Socket<ServerToClientGameEvents, ClientToServerGameEvents> =
-      io(GAME_SOCKET_URL, {
-        transports: ['websocket'],
-        auth: { gameId: result.data },
-      });
+    const socket: GameSocket = io(GAME_SOCKET_URL, {
+      transports: ['websocket'],
+      auth: { gameId: result.data },
+    });
     socketRef.current = socket;
 
     socket.on('connect_error', () => setConnectFailed(true));
 
+    // A rejected command produces no session push, so this is the only signal
+    // the client gets that anything happened.
+    socket.on('exception', (error: unknown) => {
+      const parsed = SocketErrorSchema.safeParse(error);
+
+      setSocketError(
+        parsed.success ? parsed.data.message : 'That move was not allowed.',
+      );
+    });
+
     socket.on('session', (data: unknown) => {
+      // A successful command means whatever was rejected no longer applies.
+      setSocketError(null);
       // The wire carries bitboards as hex and dates as strings; parsing runs
       // the codec's decode direction and hands back a usable session.
       const parsed = GameSessionSchema.safeParse(data);
@@ -277,6 +315,14 @@ export function GameView() {
             </div>
 
             <div className="game-sidebar">
+              {socketError && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-ember-600/40 bg-ember-600/10 px-4 py-3 text-sm text-ember-500"
+                >
+                  {socketError}
+                </p>
+              )}
               {!isFinished && !hasStarted && (
                 <div role="status" className="turn-status">
                   Starting in {secondsUntilStart}…

@@ -182,9 +182,6 @@ forfeits, chat, Elo ratings and match history.
 
 Known gaps:
 
-- Rejected moves are silent. The socket contract has no error event, so an
-  illegal move produces no client feedback — the gateway logs it and the client
-  sees no state change.
 - `game-deadlines` is not repopulated on a cold start. Redis persists
   (`appendonly yes`), but a flushed or fresh Redis leaves in-progress games with
   no clock deadline.
@@ -194,6 +191,3 @@ Known gaps:
   nothing verifies a write actually satisfies the database constraints.
 - `pnpm --filter api lint` is not clean: three `no-floating-promises` errors and
   an unused import in `src/lobby/`.
-- `removeMemberFromLobby` promotes the guest out of an already-closed lobby,
-  leaving a closed lobby with no guest, which then fails to parse. Guarding on
-  `lobby.status === 'closed'` fixes it.
