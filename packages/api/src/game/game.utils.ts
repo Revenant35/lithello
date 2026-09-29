@@ -85,7 +85,7 @@ export function performMoves(
 ): Result<Board, OthelloServiceError> {
   let finalBoard = structuredClone(board);
   for (const move of moves) {
-    const result = performMove(board, move);
+    const result = performMove(finalBoard, move);
 
     if (result.isErr()) {
       return err(OthelloServiceError.IllegalMove);
