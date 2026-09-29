@@ -19,10 +19,13 @@ export function MoveHistory({
   onResign?: () => void;
 }) {
   const resignDialog = useRef<HTMLDialogElement>(null);
-  const turns = Array.from({ length: Math.ceil(moves.length / 2) }, (_, index) => ({
-    black: moves[index * 2],
-    white: moves[index * 2 + 1],
-  }));
+  const turns = Array.from(
+    { length: Math.ceil(moves.length / 2) },
+    (_, index) => ({
+      black: moves[index * 2],
+      white: moves[index * 2 + 1],
+    }),
+  );
 
   return (
     <section
@@ -57,10 +60,18 @@ export function MoveHistory({
               className="grid min-h-11 grid-cols-[2.5rem_repeat(2,minmax(0,1fr))] items-center px-5 font-mono text-sm text-parchment-50 even:bg-white/5"
             >
               <span className="text-parchment-500">{index + 1}.</span>
-              <span className={turn.black?.kind === 'pass' ? 'text-parchment-500' : undefined}>
+              <span
+                className={
+                  turn.black?.kind === 'pass' ? 'text-parchment-500' : undefined
+                }
+              >
                 {formatAction(turn.black)}
               </span>
-              <span className={turn.white?.kind === 'pass' ? 'text-parchment-500' : undefined}>
+              <span
+                className={
+                  turn.white?.kind === 'pass' ? 'text-parchment-500' : undefined
+                }
+              >
                 {formatAction(turn.white)}
               </span>
             </li>

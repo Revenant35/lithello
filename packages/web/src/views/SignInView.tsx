@@ -67,7 +67,10 @@ export function SignInView() {
         </button>
         <p className="text-center text-sm text-parchment-300">
           Don't have an account?{' '}
-          <Link to="/signup" className="font-medium text-brass-300 hover:underline">
+          <Link
+            to="/signup"
+            className="font-medium text-brass-300 hover:underline"
+          >
             Sign up
           </Link>
         </p>

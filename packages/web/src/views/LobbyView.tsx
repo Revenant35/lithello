@@ -19,9 +19,10 @@ export function LobbyView() {
   const { data: session } = authClient.useSession();
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
-  const socketRef = useRef<
-    Socket<ServerToClientLobbyEvents, ClientToServerLobbyEvents> | null
-  >(null);
+  const socketRef = useRef<Socket<
+    ServerToClientLobbyEvents,
+    ClientToServerLobbyEvents
+  > | null>(null);
 
   const result = LobbyIDSchema.safeParse(lobbyId);
 

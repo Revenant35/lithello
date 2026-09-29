@@ -21,7 +21,11 @@ function getOutcomeCopy(args: {
   const { result, viewerColor } = args;
 
   if (result === 'draw') {
-    return { heading: 'Draw game', message: 'The board ends even.', outcome: 'draw' };
+    return {
+      heading: 'Draw game',
+      message: 'The board ends even.',
+      outcome: 'draw',
+    };
   }
 
   const winnerColor = result === 'white_win' ? 'w' : 'b';
@@ -67,10 +71,15 @@ export function PostMatchView({
         <p className="m-0 mb-1 font-mono text-[0.6rem] font-bold tracking-wide text-parchment-500 uppercase">
           {REASON_COPY[endReason]}
         </p>
-        <h2 id="post-match-heading" className="text-2xl font-medium text-parchment-50">
+        <h2
+          id="post-match-heading"
+          className="text-2xl font-medium text-parchment-50"
+        >
           {copy.heading}
         </h2>
-        <span className="mt-1 block text-sm text-parchment-300">{copy.message}</span>
+        <span className="mt-1 block text-sm text-parchment-300">
+          {copy.message}
+        </span>
       </div>
 
       <Link

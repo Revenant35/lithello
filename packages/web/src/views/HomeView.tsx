@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { LogOut, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import {
   type GameSummary,
 } from '@lithello/shared';
 import { MatchHistory } from '../components/MatchHistory';
+import { authClient } from '../lib/auth-client';
 
 const GameHistoryResponseSchema = z.object({
   games: z.array(GameSummarySchema),
@@ -22,6 +23,8 @@ export function HomeView() {
   const [isCreating, setIsCreating] = useState(false);
   const [games, setGames] = useState<GameSummary[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/game/history`, {
@@ -70,9 +73,49 @@ export function HomeView() {
     }
   }
 
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    setSignOutError(null);
+
+    try {
+      const { error } = await authClient.signOut();
+
+      if (error) {
+        setSignOutError(
+          error.message ?? 'Could not sign out. Please try again.',
+        );
+        return;
+      }
+
+      navigate('/signin', { replace: true });
+    } catch {
+      setSignOutError('Could not reach the server. Check your connection.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
   return (
     <div className="flex min-h-svh justify-center bg-wood-950 p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-8 pt-16">
+        <div className="flex w-full flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-parchment-300 transition-colors hover:enabled:text-parchment-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <LogOut size={16} />
+            {isSigningOut ? 'Signing out…' : 'Sign out'}
+          </button>
+
+          {signOutError && (
+            <p role="alert" className="text-sm text-ember-500">
+              {signOutError}
+            </p>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={handleCreateLobby}

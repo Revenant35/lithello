@@ -23,9 +23,10 @@ export function GameView() {
   const { data: session } = authClient.useSession();
   const [game, setGame] = useState<GameState | null>(null);
   const [connectFailed, setConnectFailed] = useState(false);
-  const socketRef = useRef<
-    Socket<ServerToClientGameEvents, ClientToServerGameEvents> | null
-  >(null);
+  const socketRef = useRef<Socket<
+    ServerToClientGameEvents,
+    ClientToServerGameEvents
+  > | null>(null);
 
   const result = GameIDSchema.safeParse(gameId);
 

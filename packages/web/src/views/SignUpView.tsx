@@ -80,7 +80,10 @@ export function SignUpView() {
         </button>
         <p className="text-center text-sm text-parchment-300">
           Already have an account?{' '}
-          <Link to="/signin" className="font-medium text-brass-300 hover:underline">
+          <Link
+            to="/signin"
+            className="font-medium text-brass-300 hover:underline"
+          >
             Sign in
           </Link>
         </p>
