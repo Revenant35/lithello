@@ -1,4 +1,10 @@
-import { type GameBoard, getBoardScore, INITIAL_BOARD, type PlayerColor, type Square } from '@lithello/shared';
+import {
+  type GameBoard,
+  getBoardScore,
+  INITIAL_BOARD,
+  type Square,
+} from './game-board.ts';
+import type { PlayerColor } from './game-player.ts';
 import {
   applyMove,
   getColorForPly,
@@ -8,7 +14,7 @@ import {
   hasLegalMove,
   isGameOver,
   isLegalMove,
-} from './game.utils.ts';
+} from './game.ts';
 
 /**
  * Builds a board from an 8x8 diagram so positions are readable. Rows run top to

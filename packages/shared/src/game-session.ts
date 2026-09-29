@@ -1,7 +1,9 @@
 import { z } from 'zod';
-import { GameSchema } from './game.ts';
+import { getColorForPly, GameSchema } from './game.ts';
 import { GameMessageSchema } from './game-message.ts';
-import { GameMoveSchema } from './game-move.ts';
+import { GameMoveSchema, getLastMove } from './game-move.ts';
+import type { PlayerColor } from './game-player.ts';
+import { getGameClocks } from './game-time-control.ts';
 import { PlayerSchema } from './player.ts';
 
 /**
@@ -29,3 +31,34 @@ export type GameSession = z.infer<typeof GameSessionSchema>;
  * far side with `z.decode`.
  */
 export type GameSessionWire = z.input<typeof GameSessionSchema>;
+
+/**
+ * Who is on the clock and the instant they run out, or null once the game has
+ * ended.
+ *
+ * The deadline is absolute - the previous ply's `playedAt` plus that side's
+ * remaining time - so recomputing it never pushes it forward. Anything that
+ * republishes the session (a chat message, a reconnect) leaves it unchanged.
+ */
+export function getTurnDeadline(
+  session: GameSession,
+): { color: PlayerColor; expiresAt: Date } | null {
+  if (session.game.endedAt !== null) {
+    return null;
+  }
+
+  const lastMove = getLastMove(session.moves);
+
+  if (lastMove === null) {
+    return null;
+  }
+
+  const color = getColorForPly(lastMove.ply + 1);
+  const clocks = getGameClocks(session.moves, session.game.timeControl);
+  const remaining = clocks[color === 'w' ? 'white' : 'black'];
+
+  return {
+    color,
+    expiresAt: new Date(lastMove.playedAt.getTime() + remaining),
+  };
+}

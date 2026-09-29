@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PlayerColor } from './game-player.ts';
 
 export const BOARD_SQUARES = 64;
 
@@ -8,6 +9,11 @@ export const SquareSchema = z
   .min(0)
   .max(BOARD_SQUARES - 1);
 export type Square = z.infer<typeof SquareSchema>;
+
+/** Renders a square in algebraic notation: 0 -> 'a1', 19 -> 'd3', 63 -> 'h8'. */
+export function formatSquare(square: Square): string {
+  return `${'abcdefgh'[square % 8]}${Math.floor(square / 8) + 1}`;
+}
 
 /**
  * A 64-tile bitboard travels as 16 lowercase hex characters.
@@ -70,4 +76,22 @@ export function getBoardScore(board: GameBoard): { white: number; black: number 
     white: countPieces(board.whitePieces),
     black: countPieces(board.blackPieces),
   };
+}
+
+/** Which colour occupies a square, or null when it is empty. */
+export function getSquareColor(
+  board: GameBoard,
+  square: Square,
+): PlayerColor | null {
+  const bit = 1n << BigInt(square);
+
+  if (BigInt.asUintN(64, board.whitePieces) & bit) {
+    return 'w';
+  }
+
+  if (BigInt.asUintN(64, board.blackPieces) & bit) {
+    return 'b';
+  }
+
+  return null;
 }

@@ -11,7 +11,13 @@
     "rootDir": "./src",
     "strict": true,
     "skipLibCheck": true,
-    "incremental": true
+    "incremental": true,
+    "types": [
+      "vitest/globals"
+    ],
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

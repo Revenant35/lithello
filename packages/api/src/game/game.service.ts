@@ -10,10 +10,17 @@ import {
   type GameSession,
   type GameTimeControl,
   type GameTimeControlID,
+  applyMove,
+  getColorForPly,
   getCurrentBoard,
   getGameClocks,
   getLastMove,
+  getOpponentColor,
+  getTurnDeadline,
+  getWinner,
+  hasLegalMove,
   INITIAL_BOARD,
+  isLegalMove,
   type Player,
   type PlayerColor,
   type Square,
@@ -33,14 +40,6 @@ import { REDIS_CLIENT } from '../redis/redis-client.provider.ts';
 import type { AppRedisClient } from '../redis/app-redis-client.type.ts';
 import { GameRepository } from './game.repository.ts';
 import { PlayerRepository } from '../player/player.repository.ts';
-import {
-  applyMove,
-  getColorForPly,
-  getOpponentColor,
-  getWinner,
-  hasLegalMove,
-  isLegalMove,
-} from './game.utils.ts';
 
 /** Deadlines of every in-progress game, scored by when the mover runs out. */
 const GAME_DEADLINES = 'game-deadlines';
@@ -374,43 +373,13 @@ export class GameService {
   }
 
   /**
-   * Who is on the clock and when they run out.
-   *
-   * The deadline is absolute - the previous ply's `playedAt` plus that side's
-   * remaining time - so recomputing it never pushes it forward. An unrelated
-   * republish (a chat message, a reconnect) cannot hand the mover extra time.
-   */
-  private getTurnDeadline(
-    session: GameSession,
-  ): { color: PlayerColor; expiresAt: Date } | null {
-    if (session.game.endedAt !== null) {
-      return null;
-    }
-
-    const lastMove = getLastMove(session.moves);
-
-    if (lastMove === null) {
-      return null;
-    }
-
-    const color = getColorForPly(lastMove.ply + 1);
-    const clocks = getGameClocks(session.moves, session.game.timeControl);
-    const remaining = clocks[color === 'w' ? 'white' : 'black'];
-
-    return {
-      color,
-      expiresAt: new Date(lastMove.playedAt.getTime() + remaining),
-    };
-  }
-
-  /**
    * Records when this game's clock next runs out, or drops it once the game is
    * over. Kept in Redis rather than a process timer so deadlines survive a
    * restart and any instance can act on them.
    */
   private async syncClockDeadline(session: GameSession): Promise<void> {
     const gameId = session.game.id;
-    const deadline = this.getTurnDeadline(session);
+    const deadline = getTurnDeadline(session);
 
     if (deadline === null) {
       await this.redis.zRem(GAME_DEADLINES, gameId);
@@ -452,7 +421,7 @@ export class GameService {
   private async handleClockExpiry(gameId: GameID): Promise<void> {
     try {
       const session = await this.getSession({ gameId });
-      const deadline = this.getTurnDeadline(session);
+      const deadline = getTurnDeadline(session);
 
       if (deadline === null || deadline.expiresAt.getTime() > Date.now()) {
         // Ended, or the clock has moved on - rewrite the score and leave it.

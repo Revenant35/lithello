@@ -27,8 +27,8 @@ import { GameService } from './game.service.ts';
 // The engine has its own tests; stubbing it here lets each branch of the
 // service be driven directly instead of hunting for Othello positions that
 // happen to produce a pass or a finish. The pure helpers stay real.
-vi.mock('./game.utils.ts', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./game.utils.ts')>()),
+vi.mock('@lithello/shared', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@lithello/shared')>()),
   isLegalMove: vi.fn(),
   applyMove: vi.fn(),
   hasLegalMove: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock('./game.utils.ts', async (importOriginal) => ({
 }));
 
 const { applyMove, getWinner, hasLegalMove, isLegalMove } = await import(
-  './game.utils.ts'
+  '@lithello/shared'
 );
 
 const NOW = new Date('2026-09-29T12:00:30Z');
